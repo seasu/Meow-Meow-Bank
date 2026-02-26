@@ -4,29 +4,30 @@
 
 ### Project Overview
 
-Meow Meow Bank (喵喵金幣屋) — Children's financial literacy Flutter app (ages 4-10). Uses Provider for state management, SharedPreferences for persistence, Material 3 design with amber/gold color palette. All UI text is in Chinese.
+Meow Meow Bank (喵喵金幣屋) — Children's financial literacy app (ages 4-10). Flutter 3.41, targeting Android + iOS + Web.
 
 ### Key Commands
 
 | Task | Command |
 |------|---------|
-| Get dependencies | `flutter pub get` |
-| Analyze (lint) | `flutter analyze` |
-| Unit tests | `flutter test` |
-| Build web | `flutter build web` |
-| Run web dev | `flutter run -d chrome` or `flutter run -d web-server --web-port=3000` |
+| Install deps | `flutter pub get` |
+| Analyze | `flutter analyze` |
+| Test | `flutter test` |
+| Run (Chrome) | `flutter run -d chrome` |
+| Build web | `flutter build web --release` |
+| Build APK | `flutter build apk --release` |
 
 ### Architecture
 
-- **Screens**: `home_screen.dart` (drag+form recording), `stats_screen.dart` (statistics/charts), `dream_tree_screen.dart` (wish list), `accessories_screen.dart` (collection/equip), `parent_screen.dart` (dashboard)
-- **State**: `AppState` (ChangeNotifier) in `lib/providers/app_state.dart` — Provider pattern
-- **Models**: `Transaction`, `Category`, `Wish` in `lib/models/transaction.dart`; `AccessoryDef`, constants in `lib/models/constants.dart`
-- **Widgets**: `LuckyCat` (CustomPaint mascot), `BuildingScene` (level progression)
-- **Utils**: `theme.dart` (AppColors + Material 3 theme), `sounds.dart` (AudioPlayer stub)
+- **State**: `Provider` + `ChangeNotifier` (`lib/providers/app_state.dart`), persisted via `SharedPreferences`
+- **Models**: `lib/models/` — `TxCategory`, `Transaction`, `Wish`, `AccessoryDef`, constants
+- **Screens**: `lib/screens/` — Home (drag+form), Stats, DreamTree, Accessories, Parent
+- **Widgets**: `lib/widgets/` — `LuckyCat` (CustomPainter), `BuildingScene`
+- **Navigation**: Material 3 `NavigationBar` + `IndexedStack`
 
 ### Gotchas
 
-- `flutter analyze` reports 2 pre-existing `ambiguous_import` errors in `app_state.dart` because Flutter's `foundation.dart` also exports a `Category` class. The app's `Category` is in `models/transaction.dart`.
-- `main.dart` still has the default Flutter counter template and does not wire up Provider or the custom screens yet. New screens import Provider and `AppState` correctly.
-- The `pubspec.yaml` requires Dart SDK `^3.11.0`; Flutter 3.41+ is needed.
-- For headless web testing in CI/cloud, use `flutter run -d web-server --web-port=3000` (no Chrome window needed).
+- Flutter's `foundation.dart` exports a `Category` class — our model is named `TxCategory` to avoid collision.
+- `audioplayers` requires platform-specific setup for iOS (add audio background mode to `Info.plist` if needed).
+- Flutter SDK must be on PATH: `export PATH="/opt/flutter/bin:$PATH"`.
+- GitHub Pages deploys Flutter web build with `--base-href "/Meow-Meow-Bank/"`.

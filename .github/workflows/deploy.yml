@@ -21,30 +21,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+          channel: stable
 
       - name: Install dependencies
-        run: pnpm install
+        run: flutter pub get
 
-      - name: Build
-        run: pnpm build
+      - name: Analyze
+        run: flutter analyze
 
-      - name: Copy .nojekyll
-        run: cp public/.nojekyll out/.nojekyll 2>/dev/null || touch out/.nojekyll
+      - name: Test
+        run: flutter test
+
+      - name: Build web
+        run: flutter build web --release --base-href "/Meow-Meow-Bank/"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out
+          path: build/web
 
   deploy:
     environment:
