@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
+import '../models/account.dart';
 import '../models/constants.dart';
 
 class AppState extends ChangeNotifier {
@@ -18,6 +19,10 @@ class AppState extends ChangeNotifier {
   double _interestRate = 1;
   String _interestPeriod = 'weekly';
 
+  // Multi-account
+  List<Account> _accounts = [];
+  String? _currentAccountId;
+
   final _uuid = const Uuid();
 
   List<Transaction> get transactions => _transactions;
@@ -30,6 +35,12 @@ class AppState extends ChangeNotifier {
   List<String> get equippedAccessories => _equippedAccessories;
   double get interestRate => _interestRate;
   String get interestPeriod => _interestPeriod;
+  List<Account> get accounts => _accounts;
+  String? get currentAccountId => _currentAccountId;
+  Account? get currentAccount =>
+      _currentAccountId != null && _accounts.isNotEmpty
+          ? _accounts.cast<Account?>().firstWhere((a) => a?.id == _currentAccountId, orElse: () => null)
+          : null;
 
   double get balance => _transactions.fold(
       0.0, (s, t) => t.type == TransactionType.income ? s + t.amount : s - t.amount);
@@ -44,7 +55,60 @@ class AppState extends ChangeNotifier {
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('app_state');
+
+    // Load accounts list
+    final accRaw = prefs.getString('accounts');
+    if (accRaw != null) {
+      try {
+        _accounts = (jsonDecode(accRaw) as List)
+            .map((e) => Account.fromJson(e))
+            .toList();
+      } catch (_) {}
+    }
+
+    // Load current account id
+    _currentAccountId = prefs.getString('current_account');
+
+    // If no accounts, create default
+    if (_accounts.isEmpty) {
+      final defaultAcc = Account(
+        id: _uuid.v4(),
+        name: '小朋友',
+        emoji: '🐱',
+        createdAt: DateTime.now(),
+      );
+      _accounts.add(defaultAcc);
+      _currentAccountId = defaultAcc.id;
+      await _saveAccountsList();
+    }
+
+    // If current not set, use first
+    if (_currentAccountId == null || !_accounts.any((a) => a.id == _currentAccountId)) {
+      _currentAccountId = _accounts.first.id;
+    }
+
+    await _loadAccountData();
+    notifyListeners();
+  }
+
+  Future<void> _loadAccountData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'account_$_currentAccountId';
+    final raw = prefs.getString(key);
+
+    // Reset to defaults
+    _transactions = [];
+    _wishes = [];
+    _name = currentAccount?.name ?? '小朋友';
+    _lastRecordDate = null;
+    _streak = 0;
+    _catHunger = kMaxHunger;
+    _buildingLevel = 0;
+    _unlockedAccessories = [];
+    _equippedAccessories = [];
+    _interestRate = 1;
+    _interestPeriod = 'weekly';
+
     if (raw != null) {
       try {
         final data = jsonDecode(raw) as Map<String, dynamic>;
@@ -56,31 +120,56 @@ class AppState extends ChangeNotifier {
                 ?.map((e) => Wish.fromJson(e))
                 .toList() ??
             [];
-        _name = data['name'] ?? '小朋友';
         _lastRecordDate = data['lastRecordDate'];
         _streak = data['streak'] ?? 0;
         _catHunger = (data['catHunger'] as num?)?.toDouble() ?? kMaxHunger;
         _buildingLevel = data['buildingLevel'] ?? 0;
-        _unlockedAccessories =
-            List<String>.from(data['unlockedAccessories'] ?? []);
-        _equippedAccessories =
-            List<String>.from(data['equippedAccessories'] ?? []);
+        _unlockedAccessories = List<String>.from(data['unlockedAccessories'] ?? []);
+        _equippedAccessories = List<String>.from(data['equippedAccessories'] ?? []);
         _interestRate = (data['interestRate'] as num?)?.toDouble() ?? 1;
         _interestPeriod = data['interestPeriod'] ?? 'weekly';
       } catch (_) {}
     }
+
+    // Migrate: also try old 'app_state' key for first account
+    if (_transactions.isEmpty) {
+      final oldRaw = prefs.getString('app_state');
+      if (oldRaw != null) {
+        try {
+          final data = jsonDecode(oldRaw) as Map<String, dynamic>;
+          _transactions = (data['transactions'] as List?)
+                  ?.map((e) => Transaction.fromJson(e))
+                  .toList() ??
+              [];
+          _wishes = (data['wishes'] as List?)
+                  ?.map((e) => Wish.fromJson(e))
+                  .toList() ??
+              [];
+          _lastRecordDate = data['lastRecordDate'];
+          _streak = data['streak'] ?? 0;
+          _catHunger = (data['catHunger'] as num?)?.toDouble() ?? kMaxHunger;
+          _buildingLevel = data['buildingLevel'] ?? 0;
+          _unlockedAccessories = List<String>.from(data['unlockedAccessories'] ?? []);
+          _equippedAccessories = List<String>.from(data['equippedAccessories'] ?? []);
+          _interestRate = (data['interestRate'] as num?)?.toDouble() ?? 1;
+          _interestPeriod = data['interestPeriod'] ?? 'weekly';
+          await _save();
+          await prefs.remove('app_state');
+        } catch (_) {}
+      }
+    }
+
     _updateHunger();
-    notifyListeners();
   }
 
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
+    final key = 'account_$_currentAccountId';
     await prefs.setString(
-        'app_state',
+        key,
         jsonEncode({
           'transactions': _transactions.map((e) => e.toJson()).toList(),
           'wishes': _wishes.map((e) => e.toJson()).toList(),
-          'name': _name,
           'lastRecordDate': _lastRecordDate,
           'streak': _streak,
           'catHunger': _catHunger,
@@ -90,8 +179,58 @@ class AppState extends ChangeNotifier {
           'interestRate': _interestRate,
           'interestPeriod': _interestPeriod,
         }));
+    await prefs.setString('current_account', _currentAccountId ?? '');
   }
 
+  Future<void> _saveAccountsList() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'accounts', jsonEncode(_accounts.map((a) => a.toJson()).toList()));
+  }
+
+  // Account management
+  Future<void> addAccount(String name, String emoji) async {
+    final acc = Account(
+      id: _uuid.v4(),
+      name: name,
+      emoji: emoji,
+      createdAt: DateTime.now(),
+    );
+    _accounts.add(acc);
+    await _saveAccountsList();
+    await switchAccount(acc.id);
+  }
+
+  Future<void> switchAccount(String accountId) async {
+    if (_currentAccountId == accountId) return;
+    _currentAccountId = accountId;
+    await _loadAccountData();
+    notifyListeners();
+  }
+
+  Future<void> renameAccount(String accountId, String newName, String newEmoji) async {
+    final acc = _accounts.firstWhere((a) => a.id == accountId);
+    acc.name = newName;
+    acc.emoji = newEmoji;
+    if (accountId == _currentAccountId) _name = newName;
+    await _saveAccountsList();
+    notifyListeners();
+  }
+
+  Future<void> deleteAccount(String accountId) async {
+    if (_accounts.length <= 1) return;
+    _accounts.removeWhere((a) => a.id == accountId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('account_$accountId');
+    await _saveAccountsList();
+    if (_currentAccountId == accountId) {
+      await switchAccount(_accounts.first.id);
+    } else {
+      notifyListeners();
+    }
+  }
+
+  // Existing methods
   String _today() => DateTime.now().toIso8601String().split('T')[0];
 
   int _daysBetween(String a, String b) {
@@ -109,31 +248,16 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void addTransaction(double amount, TxCategory category, TransactionType type,
-      String note) {
-    final tx = Transaction(
-      id: _uuid.v4(),
-      amount: amount,
-      category: category,
-      type: type,
-      note: note,
-      createdAt: DateTime.now(),
-    );
+  void addTransaction(double amount, TxCategory category, TransactionType type, String note) {
+    final tx = Transaction(id: _uuid.v4(), amount: amount, category: category, type: type, note: note, createdAt: DateTime.now());
     _transactions.add(tx);
-
     final todayStr = _today();
-    if (_lastRecordDate == null) {
-      _streak = 1;
-    } else if (_lastRecordDate == todayStr) {
-      // same day
-    } else if (_daysBetween(_lastRecordDate!, todayStr) == 1) {
-      _streak++;
-    } else {
-      _streak = 1;
-    }
+    if (_lastRecordDate == null) { _streak = 1; }
+    else if (_lastRecordDate == todayStr) {}
+    else if (_daysBetween(_lastRecordDate!, todayStr) == 1) { _streak++; }
+    else { _streak = 1; }
     _lastRecordDate = todayStr;
     _catHunger = (_catHunger + kHungerFeedAmount).clamp(0, kMaxHunger);
-
     _updateBuildingLevel();
     _checkAccessoryUnlocks();
     _save();
@@ -164,67 +288,30 @@ class AppState extends ChangeNotifier {
   }
 
   void addWish(String name, String emoji, double targetAmount) {
-    _wishes.add(Wish(
-      id: _uuid.v4(),
-      name: name,
-      emoji: emoji,
-      targetAmount: targetAmount,
-      createdAt: DateTime.now(),
-    ));
-    _save();
-    notifyListeners();
+    _wishes.add(Wish(id: _uuid.v4(), name: name, emoji: emoji, targetAmount: targetAmount, createdAt: DateTime.now()));
+    _save(); notifyListeners();
   }
 
   void waterWish(String wishId, double amount) {
     final w = _wishes.firstWhere((e) => e.id == wishId);
     w.savedAmount = (w.savedAmount + amount).clamp(0, w.targetAmount);
     if (w.savedAmount >= w.targetAmount) w.completedAt = DateTime.now();
-    _save();
-    notifyListeners();
+    _save(); notifyListeners();
   }
 
-  void deleteWish(String wishId) {
-    _wishes.removeWhere((e) => e.id == wishId);
-    _save();
-    notifyListeners();
-  }
-
+  void deleteWish(String wishId) { _wishes.removeWhere((e) => e.id == wishId); _save(); notifyListeners(); }
   void toggleAccessory(String id) {
-    if (_equippedAccessories.contains(id)) {
-      _equippedAccessories.remove(id);
-    } else {
-      _equippedAccessories.add(id);
-    }
-    _save();
-    notifyListeners();
+    _equippedAccessories.contains(id) ? _equippedAccessories.remove(id) : _equippedAccessories.add(id);
+    _save(); notifyListeners();
   }
-
-  void approveTransaction(String id) {
-    _transactions.firstWhere((t) => t.id == id).approved = true;
-    _save();
-    notifyListeners();
-  }
-
-  void sendHeart(String id) {
-    _transactions.firstWhere((t) => t.id == id).parentHeart = true;
-    _save();
-    notifyListeners();
-  }
-
-  void updateInterestConfig(double rate, String period) {
-    _interestRate = rate;
-    _interestPeriod = period;
-    _save();
-    notifyListeners();
-  }
-
+  void approveTransaction(String id) { _transactions.firstWhere((t) => t.id == id).approved = true; _save(); notifyListeners(); }
+  void sendHeart(String id) { _transactions.firstWhere((t) => t.id == id).parentHeart = true; _save(); notifyListeners(); }
+  void updateInterestConfig(double rate, String period) { _interestRate = rate; _interestPeriod = period; _save(); notifyListeners(); }
   void applyInterest() {
     if (balance <= 0) return;
     final interest = (balance * _interestRate / 100).roundToDouble();
     if (interest <= 0) return;
-    final cat = const TxCategory(
-        id: 'interest', name: '利息', emoji: '🏦', type: TransactionType.income);
-    addTransaction(interest, cat, TransactionType.income,
-        '${_interestPeriod == "weekly" ? "週" : "月"}利息');
+    addTransaction(interest, const TxCategory(id: 'interest', name: '利息', emoji: '🏦', type: TransactionType.income),
+        TransactionType.income, '${_interestPeriod == "weekly" ? "週" : "月"}利息');
   }
 }

@@ -44,37 +44,169 @@ class _MainShellState extends State<MainShell> {
     MoreScreen(),
   ];
 
-  static const _titles = ['🏦 喵喵金幣屋', '📊 統計', '⚙️ 更多'];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
+  void _showAccountSwitcher(AppState state) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(_titles[_currentIndex]),
-            const SizedBox(width: 6),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'v$appVersion',
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.amber.shade800,
-                      fontWeight: FontWeight.bold),
+            const Text('切換帳號', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ...state.accounts.map((acc) => ListTile(
+                  leading: Text(acc.emoji, style: const TextStyle(fontSize: 28)),
+                  title: Text(acc.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  trailing: acc.id == state.currentAccountId
+                      ? Icon(Icons.check_circle, color: Colors.green.shade400)
+                      : null,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  tileColor: acc.id == state.currentAccountId ? Colors.amber.shade50 : null,
+                  onTap: () {
+                    state.switchAccount(acc.id);
+                    Navigator.pop(ctx);
+                  },
+                )),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _showAddAccount(state);
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('新增帳號'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAddAccount(AppState state) {
+    String emoji = '🐱';
+    final nameCtrl = TextEditingController();
+    final emojis = ['🐱', '🐶', '🐰', '🐻', '🦊', '🐸', '🐧', '🦄'];
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Text('新增帳號', textAlign: TextAlign.center),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
+                spacing: 8,
+                children: emojis
+                    .map((e) => GestureDetector(
+                          onTap: () => setS(() => emoji = e),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: emoji == e ? Colors.amber.shade100 : null,
+                              borderRadius: BorderRadius.circular(10),
+                              border: emoji == e ? Border.all(color: Colors.amber, width: 2) : null,
+                            ),
+                            child: Text(e, style: const TextStyle(fontSize: 28)),
+                          ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '名字',
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                final n = nameCtrl.text.trim();
+                if (n.isNotEmpty) {
+                  state.addAccount(n, emoji);
+                  Navigator.pop(ctx);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              ),
+              child: const Text('建立', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final acc = state.currentAccount;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🏦 喵喵金幣屋'),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('v$appVersion',
+                  style: TextStyle(fontSize: 10, color: Colors.amber.shade800, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        actions: [
+          // Account switcher button
+          GestureDetector(
+            onTap: () => _showAccountSwitcher(state),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(acc?.emoji ?? '🐱', style: const TextStyle(fontSize: 18)),
+                  const SizedBox(width: 4),
+                  Text(acc?.name ?? '小朋友',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.amber.shade800)),
+                  Icon(Icons.arrow_drop_down, size: 18, color: Colors.amber.shade600),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _currentIndex,
@@ -87,12 +219,9 @@ class _MainShellState extends State<MainShell> {
         indicatorColor: Colors.amber.shade100,
         height: 65,
         destinations: const [
-          NavigationDestination(
-              icon: Text('🐱', style: TextStyle(fontSize: 26)), label: '存錢'),
-          NavigationDestination(
-              icon: Text('📊', style: TextStyle(fontSize: 26)), label: '統計'),
-          NavigationDestination(
-              icon: Text('⚙️', style: TextStyle(fontSize: 26)), label: '更多'),
+          NavigationDestination(icon: Text('🐱', style: TextStyle(fontSize: 26)), label: '存錢'),
+          NavigationDestination(icon: Text('📊', style: TextStyle(fontSize: 26)), label: '統計'),
+          NavigationDestination(icon: Text('⚙️', style: TextStyle(fontSize: 26)), label: '更多'),
         ],
       ),
     );

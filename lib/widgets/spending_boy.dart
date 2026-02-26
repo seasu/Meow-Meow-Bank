@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'pixel_utils.dart';
 
 class SpendingBoy extends StatelessWidget {
   final double size;
@@ -12,151 +13,79 @@ class SpendingBoy extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size * 1.1,
-      child: CustomPaint(painter: _SpendingBoyPainter(idleFrame: idleFrame)),
+      child: CustomPaint(painter: _PixelBoyPainter(idleFrame: idleFrame)),
     );
   }
 }
 
-class _SpendingBoyPainter extends CustomPainter {
+class _PixelBoyPainter extends CustomPainter {
   final int idleFrame;
-  _SpendingBoyPainter({this.idleFrame = 0});
+  _PixelBoyPainter({this.idleFrame = 0});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final scale = size.width / 120;
+    final ps = size.width / 16;
 
-    final bodyColor = const Color(0xFF90CAF9);
-    final skinColor = const Color(0xFFFFCC80);
-    final darkColor = const Color(0xFF5D4037);
-    final robeColor = const Color(0xFF42A5F5);
+    // Palette
+    const palette = {
+      1: Color(0xFF90CAF9), // light blue robe
+      2: Color(0xFF42A5F5), // blue robe
+      3: Color(0xFFFFCC80), // skin
+      4: Color(0xFF5D4037), // brown hair
+      5: Color(0xFF1F2937), // black (eyes/shoes)
+      6: Color(0xFFFFFFFF), // white (eye)
+      7: Color(0xFFF59E0B), // gold coin
+      8: Color(0xFFD97706), // dark gold
+      9: Color(0xFFFF8A80), // blush
+    };
 
-    final wobble = sin(idleFrame * 0.15) * 3 * scale;
-    final bounce = sin(idleFrame * 0.2).abs() * 4 * scale;
+    // Bounce idle
+    final bounce = (sin(idleFrame * 0.2).abs() * 1.5).round();
+
+    // Boy pixel art 16x17
+    final grid = [
+      // Row 0: hair top
+      [0,0,0,0,4,4,4,4,4,4,4,0,0,0,0,0],
+      // Row 1: hair
+      [0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0],
+      // Row 2: forehead
+      [0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0],
+      // Row 3: face top
+      [0,0,3,3,3,3,3,3,3,3,3,3,3,0,0,0],
+      // Row 4: eyes
+      [0,0,3,5,6,3,3,3,3,5,6,3,3,0,0,0],
+      // Row 5: eyes bottom + blush
+      [0,0,3,5,5,3,9,3,9,5,5,3,3,0,0,0],
+      // Row 6: nose
+      [0,0,3,3,3,3,3,3,3,3,3,3,3,0,0,0],
+      // Row 7: mouth
+      [0,0,3,3,3,5,5,5,5,3,3,3,3,0,0,0],
+      // Row 8: neck
+      [0,0,0,0,3,3,3,3,3,3,3,0,0,0,0,0],
+      // Row 9: robe top
+      [0,0,0,2,2,1,1,1,1,1,2,2,0,0,0,0],
+      // Row 10: robe + arms
+      [0,3,3,2,1,1,7,8,1,1,2,3,3,0,0,0],
+      // Row 11: robe body
+      [0,0,0,2,1,1,8,7,1,1,2,0,0,0,0,0],
+      // Row 12: robe
+      [0,0,0,2,2,1,1,1,1,1,2,2,0,0,0,0],
+      // Row 13: robe bottom
+      [0,0,2,2,2,2,2,2,2,2,2,2,2,0,0,0],
+      // Row 14: legs
+      [0,0,0,0,3,3,0,0,0,3,3,0,0,0,0,0],
+      // Row 15: shoes
+      [0,0,0,5,5,5,0,0,0,5,5,5,0,0,0,0],
+    ];
 
     canvas.save();
-    canvas.translate(0, -bounce);
+    canvas.translate(0, -bounce * ps);
 
-    // Body / robe
-    final robePaint = Paint()..color = robeColor;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, size.height - 35 * scale), width: 60 * scale, height: 55 * scale),
-        Radius.circular(16 * scale),
-      ),
-      robePaint,
-    );
+    drawPixels(canvas, grid, ps, 0, 0, palette);
 
-    // Robe pattern
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, size.height - 35 * scale), width: 36 * scale, height: 45 * scale),
-        Radius.circular(12 * scale),
-      ),
-      Paint()..color = bodyColor,
-    );
-
-    // Head
-    canvas.save();
-    canvas.translate(cx, 32 * scale);
-    canvas.rotate(wobble * 0.02);
-    canvas.translate(-cx, -32 * scale);
-
-    canvas.drawCircle(Offset(cx, 32 * scale), 28 * scale, Paint()..color = skinColor);
-
-    // Hair (bowl cut)
-    final hairPaint = Paint()..color = darkColor;
-    canvas.drawArc(
-      Rect.fromCenter(center: Offset(cx, 26 * scale), width: 58 * scale, height: 40 * scale),
-      pi, pi, true, hairPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(cx - 29 * scale, 20 * scale, 58 * scale, 8 * scale),
-      hairPaint,
-    );
-
-    // Eyes (cute round)
-    final eyeWhite = Paint()..color = Colors.white;
-    final eyeBlack = Paint()..color = darkColor;
-    canvas.drawCircle(Offset(cx - 9 * scale, 32 * scale), 6 * scale, eyeWhite);
-    canvas.drawCircle(Offset(cx + 9 * scale, 32 * scale), 6 * scale, eyeWhite);
-
-    // Pupil direction varies with idle
-    final pupilOff = sin(idleFrame * 0.1) * 2 * scale;
-    canvas.drawCircle(Offset(cx - 9 * scale + pupilOff, 33 * scale), 3 * scale, eyeBlack);
-    canvas.drawCircle(Offset(cx + 9 * scale + pupilOff, 33 * scale), 3 * scale, eyeBlack);
-    canvas.drawCircle(Offset(cx - 8 * scale + pupilOff, 32 * scale), 1 * scale, eyeWhite);
-    canvas.drawCircle(Offset(cx + 10 * scale + pupilOff, 32 * scale), 1 * scale, eyeWhite);
-
-    // Blush
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx - 16 * scale, 38 * scale), width: 8 * scale, height: 5 * scale),
-      Paint()..color = const Color(0xFFFF8A80).withValues(alpha: 0.5),
-    );
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx + 16 * scale, 38 * scale), width: 8 * scale, height: 5 * scale),
-      Paint()..color = const Color(0xFFFF8A80).withValues(alpha: 0.5),
-    );
-
-    // Mouth (grin)
-    final mouthPaint = Paint()
-      ..color = darkColor
-      ..strokeWidth = 1.5 * scale
-      ..style = PaintingStyle.stroke;
-    final mp = Path();
-    mp.moveTo(cx - 5 * scale, 42 * scale);
-    mp.quadraticBezierTo(cx, 48 * scale, cx + 5 * scale, 42 * scale);
-    canvas.drawPath(mp, mouthPaint);
-
-    canvas.restore(); // head rotation
-
-    // Arms
-    final armPaint = Paint()..color = skinColor;
-    // Left arm (waving money)
-    canvas.save();
-    canvas.translate(cx - 32 * scale, size.height - 50 * scale);
-    canvas.rotate(sin(idleFrame * 0.12) * 0.2);
-    canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: 16 * scale, height: 22 * scale), armPaint);
     canvas.restore();
-
-    // Right arm (holding coin)
-    canvas.save();
-    canvas.translate(cx + 32 * scale, size.height - 48 * scale);
-    canvas.rotate(-sin(idleFrame * 0.15) * 0.15);
-    canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: 16 * scale, height: 22 * scale), armPaint);
-
-    // Spinning coin in hand
-    final coinAngle = idleFrame * 0.1;
-    final coinW = (8 * cos(coinAngle)).abs() * scale + 2 * scale;
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(0, -12 * scale), width: coinW, height: 8 * scale),
-      Paint()..color = Colors.amber,
-    );
-    canvas.restore();
-
-    // Feet
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx - 12 * scale, size.height - 8 * scale), width: 18 * scale, height: 10 * scale),
-      Paint()..color = darkColor,
-    );
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx + 12 * scale, size.height - 8 * scale), width: 18 * scale, height: 10 * scale),
-      Paint()..color = darkColor,
-    );
-
-    // Money bag
-    final bagPaint = Paint()..color = Colors.amber.shade600;
-    canvas.drawCircle(Offset(cx, size.height - 30 * scale), 10 * scale, bagPaint);
-    final yenPainter = TextPainter(
-      text: TextSpan(text: '\$', style: TextStyle(color: Colors.amber.shade900, fontSize: 10 * scale, fontWeight: FontWeight.bold)),
-      textDirection: TextDirection.ltr,
-    );
-    yenPainter.layout();
-    yenPainter.paint(canvas, Offset(cx - yenPainter.width / 2, size.height - 36 * scale));
-
-    canvas.restore(); // bounce
   }
 
   @override
-  bool shouldRepaint(covariant _SpendingBoyPainter old) => old.idleFrame != idleFrame;
+  bool shouldRepaint(covariant _PixelBoyPainter old) => old.idleFrame != idleFrame;
 }
