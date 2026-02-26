@@ -18,7 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _catMood;
   String? _catMessage;
   bool _catWaving = false;
-  bool _coinDragging = false;
 
   static final _incomeCat = kCategories.firstWhere((c) => c.id == 'income');
 
@@ -132,13 +131,15 @@ class _HomeScreenState extends State<HomeScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
                 children: expCats.map((c) => GestureDetector(
                   onTap: () => setS(() => selectedId = c.id),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    width: 60, height: 60,
+                    width: 64, height: 64,
                     decoration: BoxDecoration(
                       color: selectedId == c.id ? Colors.pink.shade100 : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(14),
@@ -147,8 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(c.emoji, style: const TextStyle(fontSize: 24)),
-                        Text(c.name, style: const TextStyle(fontSize: 9)),
+                        Text(c.emoji, style: const TextStyle(fontSize: 26)),
+                        Text(c.name, style: const TextStyle(fontSize: 10)),
                       ],
                     ),
                   ),
@@ -218,82 +219,65 @@ class _HomeScreenState extends State<HomeScreen> {
             Text('🔥 連續 ${state.streak} 天',
                 style: TextStyle(fontSize: 13, color: Colors.amber.shade700)),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          // Cat (drop target for coin)
-          DragTarget<String>(
-            onAcceptWithDetails: (d) {
-              if (d.data == 'coin') _onSaveMoney(state);
-            },
-            builder: (context, candidateData, _) {
-              final hovering = candidateData.isNotEmpty;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(8),
-                decoration: hovering
-                    ? BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 30, spreadRadius: 10)],
-                      )
-                    : null,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    LuckyCat(
-                      hunger: state.catHunger,
-                      balance: state.balance,
-                      mood: _catMood,
-                      message: _catMessage,
-                      isWaving: _catWaving,
-                      equippedAccessories: state.equippedAccessories,
-                    ),
-                    // Draggable bill on cat's paw (top-right of cat)
-                    if (state.balance > 0 && _catMood == null)
-                      Positioned(
-                        top: 30,
-                        right: 0,
-                        child: Draggable<String>(
-                          data: 'bill',
-                          onDragEnd: (details) {
-                            if (details.offset.distance > 60) {
-                              _onSpendMoney(state);
-                            }
-                          },
-                          feedback: Material(
-                            color: Colors.transparent,
-                            child: _buildBill(dragging: true),
-                          ),
-                          childWhenDragging: Opacity(opacity: 0.2, child: _buildBill()),
-                          child: _buildBill(),
-                        ),
-                      ),
-                  ],
+          // Cat with left-hand coin and right-hand bill
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              LuckyCat(
+                hunger: state.catHunger,
+                balance: state.balance,
+                mood: _catMood,
+                message: _catMessage,
+                isWaving: _catWaving,
+                equippedAccessories: state.equippedAccessories,
+              ),
+
+              // LEFT hand: coin (save)
+              Positioned(
+                left: 0,
+                top: 55,
+                child: GestureDetector(
+                  onTap: () => _onSaveMoney(state),
+                  child: _buildHandItem(
+                    emoji: '🪙',
+                    label: '存錢',
+                    color: Colors.amber,
+                    size: 60,
+                  ),
                 ),
-              );
-            },
+              ),
+
+              // RIGHT hand: bill (spend)
+              Positioned(
+                right: 0,
+                top: 55,
+                child: GestureDetector(
+                  onTap: () => _onSpendMoney(state),
+                  child: _buildHandItem(
+                    emoji: '💵',
+                    label: '花錢',
+                    color: Colors.pink,
+                    size: 60,
+                  ),
+                ),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          // One big draggable coin
-          _coinDragging
-              ? Opacity(opacity: 0.3, child: _buildCoin())
-              : Draggable<String>(
-                  data: 'coin',
-                  onDragStarted: () => setState(() => _coinDragging = true),
-                  onDragEnd: (_) => setState(() => _coinDragging = false),
-                  feedback: Material(
-                    color: Colors.transparent,
-                    child: _buildCoin(dragging: true),
-                  ),
-                  childWhenDragging: Opacity(opacity: 0.3, child: _buildCoin()),
-                  child: _buildCoin(),
-                ),
-
-          const SizedBox(height: 8),
-          Text('👆 拖金幣到貓咪存錢', style: TextStyle(fontSize: 12, color: Colors.amber.shade500)),
-          if (state.balance > 0)
-            Text('👆 從貓咪拖走紙鈔花錢', style: TextStyle(fontSize: 12, color: Colors.pink.shade300)),
+          // Hint text
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _hintChip('👈 點左手存錢', Colors.amber),
+              const SizedBox(width: 12),
+              _hintChip('點右手花錢 👉', Colors.pink),
+            ],
+          ),
 
           const SizedBox(height: 20),
 
@@ -304,50 +288,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCoin({bool dragging = false}) {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFDE68A), Color(0xFFF59E0B), Color(0xFFFCD34D)],
-        ),
-        border: Border.all(color: Colors.amber.shade700, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: dragging ? Colors.amber.withValues(alpha: 0.6) : Colors.black26,
-            blurRadius: dragging ? 20 : 6,
+  Widget _buildHandItem({
+    required String emoji,
+    required String label,
+    required Color color,
+    required double size,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.15),
+            border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
+            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 8)],
           ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Text('\$',
-          style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.amber.shade900)),
+          alignment: Alignment.center,
+          child: Text(emoji, style: const TextStyle(fontSize: 30)),
+        ),
+        const SizedBox(height: 4),
+        Text(label,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+      ],
     );
   }
 
-  Widget _buildBill({bool dragging = false}) {
+  Widget _hintChip(String text, Color color) {
     return Container(
-      width: 56,
-      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        gradient: LinearGradient(
-          colors: [Colors.green.shade300, Colors.green.shade500],
-        ),
-        border: Border.all(color: Colors.green.shade700, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: dragging ? Colors.green.withValues(alpha: 0.5) : Colors.black26,
-            blurRadius: dragging ? 12 : 4,
-          ),
-        ],
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
       ),
-      alignment: Alignment.center,
-      child: Text('\$', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.green.shade900)),
+      child: Text(text, style: TextStyle(fontSize: 11, color: color)),
     );
   }
 
