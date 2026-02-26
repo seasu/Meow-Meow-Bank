@@ -9,6 +9,7 @@ import '../utils/sounds.dart';
 import '../widgets/lucky_cat.dart';
 import '../widgets/spending_boy.dart';
 import 'amount_input_screen.dart';
+import 'history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -328,11 +329,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecent(AppState state) {
-    final recent = state.transactions.reversed.take(5).toList();
+    final recent = state.transactions.reversed.take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('最近紀錄', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amber.shade800)),
+        Row(
+          children: [
+            Text('最近紀錄', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amber.shade800)),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Text('查看全部 📖', style: TextStyle(fontSize: 12, color: Colors.amber.shade700, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 6),
         ...recent.map((tx) => Padding(
           padding: const EdgeInsets.only(bottom: 4),
