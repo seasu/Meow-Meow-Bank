@@ -6,6 +6,7 @@ import '../models/transaction.dart';
 import '../models/constants.dart';
 import '../utils/sounds.dart';
 import '../widgets/lucky_cat.dart';
+import 'amount_input_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,34 +22,52 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static final _incomeCat = kCategories.firstWhere((c) => c.id == 'income');
 
-  void _onSaveMoney(AppState state) {
-    _showAmountDialog(
-      title: '🪙 存多少錢？',
-      color: Colors.amber,
-      onConfirm: (amount) {
-        SoundService.playCoinDrop();
-        HapticFeedback.mediumImpact();
-        state.addTransaction(amount, _incomeCat, TransactionType.income, '');
-        setState(() {
-          _catMood = 'excited';
-          _catMessage = '+\$${amount.toInt()} 喵～✨';
-          _catWaving = true;
-        });
-        _resetAnimAfter();
-      },
+  void _onSaveMoney(AppState state) async {
+    final amount = await Navigator.push<double>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AmountInputScreen(
+          title: '存多少錢？',
+          emoji: '🪙',
+          color: Colors.amber,
+        ),
+      ),
     );
+    if (amount != null && amount > 0 && mounted) {
+      SoundService.playCoinDrop();
+      HapticFeedback.mediumImpact();
+      state.addTransaction(amount, _incomeCat, TransactionType.income, '');
+      setState(() {
+        _catMood = 'excited';
+        _catMessage = '+\$${amount.toInt()} 喵～✨';
+        _catWaving = true;
+      });
+      _resetAnimAfter();
+    }
   }
 
   void _onSpendMoney(AppState state) {
-    _showExpenseDialog(
-      onConfirm: (amount, cat) {
-        HapticFeedback.mediumImpact();
-        state.addTransaction(amount, cat, TransactionType.expense, '');
-        setState(() {
-          _catMood = 'remind';
-          _catMessage = '-\$${amount.toInt()} 花錢要想想喔～';
-        });
-        _resetAnimAfter();
+    _showCategoryPicker(
+      onCategorySelected: (cat) async {
+        final amount = await Navigator.push<double>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AmountInputScreen(
+              title: '${cat.emoji} 花多少錢？',
+              emoji: '💸',
+              color: Colors.pink.shade400,
+            ),
+          ),
+        );
+        if (amount != null && amount > 0 && mounted) {
+          HapticFeedback.mediumImpact();
+          state.addTransaction(amount, cat, TransactionType.expense, '');
+          setState(() {
+            _catMood = 'remind';
+            _catMessage = '-\$${amount.toInt()} 花錢要想想喔～';
+          });
+          _resetAnimAfter();
+        }
       },
     );
   }
@@ -66,131 +85,43 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _showAmountDialog({
-    required String title,
-    required Color color,
-    required void Function(double amount) onConfirm,
-  }) {
-    final ctrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(title, style: const TextStyle(fontSize: 22), textAlign: TextAlign.center),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: color),
-          decoration: InputDecoration(
-            hintText: '0',
-            hintStyle: TextStyle(fontSize: 40, color: color.withValues(alpha: 0.3)),
-            prefixText: '\$ ',
-            prefixStyle: TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: color),
-            border: InputBorder.none,
-          ),
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          SizedBox(
-            width: 200,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: () {
-                final amt = double.tryParse(ctrl.text) ?? 0;
-                if (amt > 0) {
-                  Navigator.pop(ctx);
-                  onConfirm(amt);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              child: const Text('確定！', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showExpenseDialog({required void Function(double, TxCategory) onConfirm}) {
-    String selectedId = '';
-    final ctrl = TextEditingController();
+  void _showCategoryPicker({required void Function(TxCategory cat) onCategorySelected}) {
     final expCats = kCategories.where((c) => c.type == TransactionType.expense).toList();
-
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Text('💸 花了什麼錢？', style: TextStyle(fontSize: 22), textAlign: TextAlign.center),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: expCats.map((c) => GestureDetector(
-                  onTap: () => setS(() => selectedId = c.id),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 64, height: 64,
-                    decoration: BoxDecoration(
-                      color: selectedId == c.id ? Colors.pink.shade100 : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(14),
-                      border: selectedId == c.id ? Border.all(color: Colors.pink, width: 3) : null,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(c.emoji, style: const TextStyle(fontSize: 26)),
-                        Text(c.name, style: const TextStyle(fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                )).toList(),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: ctrl,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.pink.shade400),
-                decoration: InputDecoration(
-                  hintText: '0',
-                  hintStyle: TextStyle(fontSize: 36, color: Colors.pink.shade100),
-                  prefixText: '\$ ',
-                  prefixStyle: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.pink.shade300),
-                  border: InputBorder.none,
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            SizedBox(
-              width: 200, height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  final amt = double.tryParse(ctrl.text) ?? 0;
-                  if (amt > 0 && selectedId.isNotEmpty) {
-                    Navigator.pop(ctx);
-                    onConfirm(amt, expCats.firstWhere((c) => c.id == selectedId));
-                  }
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('花了什麼？', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: expCats.map((c) => GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onCategorySelected(c);
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink.shade400,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Container(
+                  width: 72, height: 72,
+                  decoration: BoxDecoration(
+                    color: Colors.pink.shade50,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.pink.shade200),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(c.emoji, style: const TextStyle(fontSize: 32)),
+                      Text(c.name, style: TextStyle(fontSize: 11, color: Colors.pink.shade400)),
+                    ],
+                  ),
                 ),
-                child: const Text('確定！', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ),
+              )).toList(),
             ),
           ],
         ),
