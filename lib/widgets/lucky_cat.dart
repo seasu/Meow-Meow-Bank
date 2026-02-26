@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 
@@ -48,11 +49,16 @@ class LuckyCat extends StatelessWidget {
                 .toList(),
           ),
         const SizedBox(height: 4),
-        AnimatedOpacity(
-          opacity: currentMood == 'sleepy' ? 0.5 : 1.0,
-          duration: const Duration(milliseconds: 500),
-          child: _CatBody(mood: currentMood, isWaving: isWaving, balance: balance),
-        ),
+        if (balance <= -3000)
+          _SkeletonCat()
+        else if (balance > 60000)
+          _SuperCat(isWaving: isWaving)
+        else
+          AnimatedOpacity(
+            opacity: currentMood == 'sleepy' ? 0.5 : 1.0,
+            duration: const Duration(milliseconds: 500),
+            child: _CatBody(mood: currentMood, isWaving: isWaving, balance: balance),
+          ),
         const SizedBox(height: 8),
         SizedBox(
           width: 130,
@@ -112,18 +118,21 @@ class _CatBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // fatness based on balance:
-    //   balance <= -500 → 0.7 (very thin)
-    //   balance == 0    → 1.0 (normal)
-    //   balance >= 5000 → 1.5 (max chonk)
+    // Fatness scale:
+    //   balance ≤ -2000 → 0.3 (thinnest before skeleton)
+    //   balance = 0     → 1.0 (normal)
+    //   balance = 50000 → 5.0 (max chonk)
+    //   balance > 60000 → super cat (handled by parent)
+    //   balance ≤ -3000 → skeleton (handled by parent)
     double fatness;
     if (balance >= 0) {
-      fatness = 1.0 + (balance / 5000).clamp(0.0, 1.0) * 0.5;
+      fatness = 1.0 + (balance / 50000).clamp(0.0, 1.0) * 4.0;
     } else {
-      fatness = 1.0 - (balance.abs() / 500).clamp(0.0, 1.0) * 0.3;
+      fatness = 1.0 - (balance.abs() / 2000).clamp(0.0, 1.0) * 0.7;
     }
-    final w = 140.0 * (0.85 + fatness * 0.15);
-    final h = 150.0 * (0.85 + fatness * 0.15);
+    final scale = fatness.clamp(0.3, 5.0);
+    final w = 140.0 * (0.6 + scale * 0.2);
+    final h = 150.0 * (0.6 + scale * 0.2);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 800),
@@ -131,7 +140,7 @@ class _CatBody extends StatelessWidget {
       width: w,
       height: h,
       child: CustomPaint(
-        painter: _CatPainter(mood: mood, isWaving: isWaving, fatness: fatness),
+        painter: _CatPainter(mood: mood, isWaving: isWaving, fatness: scale),
       ),
     );
   }
@@ -307,4 +316,263 @@ class _CatPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CatPainter old) =>
       old.mood != mood || old.isWaving != isWaving || old.fatness != fatness;
+}
+
+class _SkeletonCat extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      height: 150,
+      child: CustomPaint(painter: _SkeletonPainter()),
+    );
+  }
+}
+
+class _SkeletonPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final bonePaint = Paint()
+      ..color = const Color(0xFFE0D5C5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    final fillPaint = Paint()..color = const Color(0xFFF5EDE0);
+
+    // Skull
+    canvas.drawCircle(Offset(cx, 38), 30, fillPaint);
+    canvas.drawCircle(Offset(cx, 38), 30, bonePaint);
+
+    // Skull eyes (hollow)
+    canvas.drawCircle(Offset(cx - 10, 34), 8, Paint()..color = const Color(0xFF4A3728));
+    canvas.drawCircle(Offset(cx + 10, 34), 8, Paint()..color = const Color(0xFF4A3728));
+
+    // Nose hole
+    final nosePath = Path();
+    nosePath.moveTo(cx, 44);
+    nosePath.lineTo(cx - 4, 50);
+    nosePath.lineTo(cx + 4, 50);
+    nosePath.close();
+    canvas.drawPath(nosePath, Paint()..color = const Color(0xFF4A3728));
+
+    // Ear bones
+    canvas.drawLine(Offset(cx - 22, 14), Offset(cx - 14, -4), bonePaint);
+    canvas.drawLine(Offset(cx - 14, -4), Offset(cx - 6, 14), bonePaint);
+    canvas.drawLine(Offset(cx + 22, 14), Offset(cx + 14, -4), bonePaint);
+    canvas.drawLine(Offset(cx + 14, -4), Offset(cx + 6, 14), bonePaint);
+
+    // Spine
+    for (var i = 0; i < 5; i++) {
+      final y = 72.0 + i * 14;
+      canvas.drawCircle(Offset(cx, y), 5, fillPaint);
+      canvas.drawCircle(Offset(cx, y), 5, bonePaint);
+    }
+
+    // Ribs
+    for (var i = 0; i < 3; i++) {
+      final y = 78.0 + i * 14;
+      final ribPaint = Paint()
+        ..color = const Color(0xFFE0D5C5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      canvas.drawArc(Rect.fromCenter(center: Offset(cx, y), width: 50, height: 16), 0.2, 2.7, false, ribPaint);
+      canvas.drawArc(Rect.fromCenter(center: Offset(cx, y), width: 50, height: 16), -2.9, -2.7, false, ribPaint);
+    }
+
+    // "嗚嗚..." text
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: '💀 嗚嗚...沒錢了喵',
+        style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, size.height - 12));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+class _SuperCat extends StatelessWidget {
+  final bool isWaving;
+  const _SuperCat({this.isWaving = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 200,
+      height: 210,
+      child: CustomPaint(painter: _SuperCatPainter(isWaving: isWaving)),
+    );
+  }
+}
+
+class _SuperCatPainter extends CustomPainter {
+  final bool isWaving;
+  _SuperCatPainter({this.isWaving = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+
+    // Golden aura glow
+    for (var i = 3; i >= 1; i--) {
+      canvas.drawCircle(
+        Offset(cx, size.height * 0.45),
+        60.0 + i * 15,
+        Paint()..color = Colors.amber.withValues(alpha: 0.08 * i),
+      );
+    }
+
+    // Cape
+    final capePath = Path();
+    capePath.moveTo(cx - 30, 60);
+    capePath.quadraticBezierTo(cx - 55, size.height * 0.6, cx - 40, size.height - 30);
+    capePath.lineTo(cx + 40, size.height - 30);
+    capePath.quadraticBezierTo(cx + 55, size.height * 0.6, cx + 30, 60);
+    capePath.close();
+    canvas.drawPath(capePath, Paint()..color = Colors.red.shade600);
+    // Cape inner
+    final capeInner = Path();
+    capeInner.moveTo(cx - 25, 65);
+    capeInner.quadraticBezierTo(cx - 45, size.height * 0.6, cx - 35, size.height - 35);
+    capeInner.lineTo(cx + 35, size.height - 35);
+    capeInner.quadraticBezierTo(cx + 45, size.height * 0.6, cx + 25, 65);
+    capeInner.close();
+    canvas.drawPath(capeInner, Paint()..color = Colors.red.shade400);
+
+    // Fat body (golden)
+    final bodyPaint = Paint()..color = const Color(0xFFFFD700);
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx, size.height - 55), width: 120, height: 100),
+      bodyPaint,
+    );
+
+    // Belly with S emblem
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx, size.height - 50), width: 65, height: 50),
+      Paint()..color = const Color(0xFFFFF3C4),
+    );
+
+    // "S" emblem on belly
+    final sPaint = Paint()
+      ..color = Colors.red.shade700
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final sPath = Path();
+    sPath.moveTo(cx + 8, size.height - 62);
+    sPath.cubicTo(cx - 8, size.height - 65, cx - 12, size.height - 52, cx, size.height - 50);
+    sPath.cubicTo(cx + 12, size.height - 48, cx + 8, size.height - 36, cx - 8, size.height - 38);
+    canvas.drawPath(sPath, sPaint);
+
+    // Head (golden)
+    canvas.drawCircle(Offset(cx, 45), 42, bodyPaint);
+
+    // Ears
+    final earPath = Path()..moveTo(cx - 34, 22)..lineTo(cx - 22, -6)..lineTo(cx - 8, 20)..close();
+    canvas.drawPath(earPath, bodyPaint);
+    final earPath2 = Path()..moveTo(cx + 34, 22)..lineTo(cx + 22, -6)..lineTo(cx + 8, 20)..close();
+    canvas.drawPath(earPath2, bodyPaint);
+
+    // Star eyes ⭐
+    _drawStar(canvas, Offset(cx - 13, 40), 7, Colors.amber.shade800);
+    _drawStar(canvas, Offset(cx + 13, 40), 7, Colors.amber.shade800);
+
+    // Sparkle around eyes
+    canvas.drawCircle(Offset(cx - 12, 38), 2, Paint()..color = Colors.white);
+    canvas.drawCircle(Offset(cx + 14, 38), 2, Paint()..color = Colors.white);
+
+    // Nose
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx, 51), width: 7, height: 5),
+      Paint()..color = Colors.pink.shade300,
+    );
+
+    // Big grin
+    final grinPaint = Paint()
+      ..color = Colors.pink.shade400
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final gp = Path();
+    gp.moveTo(cx - 10, 55);
+    gp.quadraticBezierTo(cx - 5, 62, cx, 55);
+    gp.quadraticBezierTo(cx + 5, 62, cx + 10, 55);
+    canvas.drawPath(gp, grinPaint);
+
+    // Blush
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx - 25, 50), width: 14, height: 8),
+      Paint()..color = Colors.pink.shade200.withValues(alpha: 0.6),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx + 25, 50), width: 14, height: 8),
+      Paint()..color = Colors.pink.shade200.withValues(alpha: 0.6),
+    );
+
+    // Muscular paws
+    final pawPaint = Paint()..color = const Color(0xFFFFF3C4);
+    // Right paw (power fist up)
+    canvas.save();
+    if (isWaving) {
+      canvas.translate(cx + 48, 75);
+      canvas.rotate(-0.4);
+      canvas.translate(-(cx + 48), -75);
+    }
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx + 48, 75), width: 28, height: 34),
+      pawPaint,
+    );
+    canvas.restore();
+
+    // Left paw
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx - 48, 80), width: 26, height: 30),
+      pawPaint,
+    );
+
+    // Crown on head
+    final crownPaint = Paint()..color = Colors.amber.shade600;
+    final crownPath = Path();
+    crownPath.moveTo(cx - 20, 8);
+    crownPath.lineTo(cx - 15, -8);
+    crownPath.lineTo(cx - 5, 2);
+    crownPath.lineTo(cx, -12);
+    crownPath.lineTo(cx + 5, 2);
+    crownPath.lineTo(cx + 15, -8);
+    crownPath.lineTo(cx + 20, 8);
+    crownPath.close();
+    canvas.drawPath(crownPath, crownPaint);
+    // Crown gems
+    canvas.drawCircle(Offset(cx, -4), 3, Paint()..color = Colors.red.shade400);
+    canvas.drawCircle(Offset(cx - 12, 0), 2, Paint()..color = Colors.blue.shade400);
+    canvas.drawCircle(Offset(cx + 12, 0), 2, Paint()..color = Colors.green.shade400);
+
+    // Floating sparkles
+    _drawStar(canvas, Offset(cx - 50, 20), 4, Colors.amber.shade300);
+    _drawStar(canvas, Offset(cx + 50, 15), 3, Colors.amber.shade200);
+    _drawStar(canvas, Offset(cx - 40, size.height - 25), 3, Colors.amber.shade200);
+    _drawStar(canvas, Offset(cx + 45, size.height - 30), 4, Colors.amber.shade300);
+  }
+
+  void _drawStar(Canvas canvas, Offset center, double r, Color color) {
+    final path = Path();
+    for (var i = 0; i < 5; i++) {
+      final outerAngle = -pi / 2 + i * 2 * pi / 5;
+      final innerAngle = outerAngle + pi / 5;
+      if (i == 0) {
+        path.moveTo(center.dx + r * cos(outerAngle), center.dy + r * sin(outerAngle));
+      } else {
+        path.lineTo(center.dx + r * cos(outerAngle), center.dy + r * sin(outerAngle));
+      }
+      path.lineTo(center.dx + r * 0.4 * cos(innerAngle), center.dy + r * 0.4 * sin(innerAngle));
+    }
+    path.close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SuperCatPainter old) => old.isWaving != isWaving;
 }
