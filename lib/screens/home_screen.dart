@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +7,7 @@ import '../models/transaction.dart';
 import '../models/constants.dart';
 import '../utils/sounds.dart';
 import '../widgets/lucky_cat.dart';
+import '../widgets/spending_boy.dart';
 import 'amount_input_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,8 +21,26 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _catMood;
   String? _catMessage;
   bool _catWaving = false;
+  int _idleFrame = 0;
+  Timer? _idleTimer;
 
   static final _incomeCat = kCategories.firstWhere((c) => c.id == 'income');
+
+  @override
+  void initState() {
+    super.initState();
+    _idleTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+      if (mounted) {
+        setState(() => _idleFrame++);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _idleTimer?.cancel();
+    super.dispose();
+  }
 
   void _onSaveMoney(AppState state) async {
     final amount = await Navigator.push<double>(
@@ -28,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => const AmountInputScreen(
           title: '存多少錢？',
-          emoji: '🪙',
+          emoji: '🐱',
           color: Colors.amber,
         ),
       ),
@@ -54,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(
             builder: (_) => AmountInputScreen(
               title: '${cat.emoji} 花多少錢？',
-              emoji: '💸',
+              emoji: '👦',
               color: Colors.pink.shade400,
             ),
           ),
@@ -99,13 +119,12 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const Text('花了什麼？', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
               children: expCats.map((c) => GestureDetector(
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onCategorySelected(c);
-                },
+                onTap: () { Navigator.pop(ctx); onCategorySelected(c); },
                 child: Container(
                   width: 72, height: 72,
                   decoration: BoxDecoration(
@@ -132,129 +151,179 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final saved = state.totalSaved;
+    final spent = state.totalExpense;
+    final total = saved + spent;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-      child: Column(
-        children: [
-          // Balance
-          Text(
-            '\$${state.balance.toInt()}',
-            style: TextStyle(
-              fontSize: 52,
-              fontWeight: FontWeight.w900,
-              color: state.balance >= 0 ? Colors.green.shade600 : Colors.pink,
+    // Size ratio: cat vs boy (min 0.35, max 0.65)
+    double catRatio = total > 0 ? (saved / total).clamp(0.35, 0.65) : 0.5;
+    double boyRatio = 1.0 - catRatio;
+    final screenW = MediaQuery.of(context).size.width - 48;
+    final catSize = (screenW * catRatio).clamp(80.0, 200.0);
+    final boySize = (screenW * boyRatio).clamp(80.0, 200.0);
+
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity == null) return;
+        if (details.primaryVelocity! < -300) {
+          _onSpendMoney(state);
+        } else if (details.primaryVelocity! > 300) {
+          _onSaveMoney(state);
+        }
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+        child: Column(
+          children: [
+            // Balance
+            Text(
+              '\$${state.balance.toInt()}',
+              style: TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.w900,
+                color: state.balance >= 0 ? Colors.green.shade600 : Colors.pink,
+              ),
             ),
-          ),
-          if (state.streak > 0)
-            Text('🔥 連續 ${state.streak} 天',
-                style: TextStyle(fontSize: 13, color: Colors.amber.shade700)),
+            if (state.streak > 0)
+              Text('🔥 連續 ${state.streak} 天',
+                  style: TextStyle(fontSize: 13, color: Colors.amber.shade700)),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-          // Cat with left-hand coin and right-hand bill
-          Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              LuckyCat(
-                hunger: state.catHunger,
-                balance: state.balance,
-                mood: _catMood,
-                message: _catMessage,
-                isWaving: _catWaving,
-                equippedAccessories: state.equippedAccessories,
-              ),
-
-              // LEFT hand: coin (save)
-              Positioned(
-                left: 0,
-                top: 55,
-                child: GestureDetector(
+            // Two characters side by side
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // LEFT: Lucky Cat (save)
+                GestureDetector(
                   onTap: () => _onSaveMoney(state),
-                  child: _buildHandItem(
-                    emoji: '🪙',
-                    label: '存錢',
-                    color: Colors.amber,
-                    size: 60,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.easeInOut,
+                        width: catSize,
+                        height: catSize * 1.1,
+                        child: FittedBox(
+                          child: LuckyCat(
+                            hunger: state.catHunger,
+                            balance: state.balance,
+                            mood: _catMood,
+                            message: null,
+                            isWaving: _catWaving || (_idleFrame % 80 > 70),
+                            equippedAccessories: state.equippedAccessories,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text('招財貓 🪙',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.amber.shade800)),
+                      ),
+                      Text('收入 \$${saved.toInt()}',
+                          style: TextStyle(fontSize: 11, color: Colors.green.shade600)),
+                    ],
                   ),
                 ),
-              ),
 
-              // RIGHT hand: bill (spend)
-              Positioned(
-                right: 0,
-                top: 55,
-                child: GestureDetector(
+                const SizedBox(width: 8),
+
+                // Divider
+                Container(
+                  width: 2, height: 80,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.grey.shade300, Colors.transparent],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                // RIGHT: Spending Boy (spend)
+                GestureDetector(
                   onTap: () => _onSpendMoney(state),
-                  child: _buildHandItem(
-                    emoji: '💵',
-                    label: '花錢',
-                    color: Colors.pink,
-                    size: 60,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.easeInOut,
+                        width: boySize,
+                        height: boySize * 1.1,
+                        child: FittedBox(
+                          child: SpendingBoy(
+                            size: 120,
+                            idleFrame: _idleFrame,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.pink.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text('散財童子 💸',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.pink.shade400)),
+                      ),
+                      Text('支出 \$${spent.toInt()}',
+                          style: TextStyle(fontSize: 11, color: Colors.pink)),
+                    ],
                   ),
                 ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // Cat message
+            if (_catMessage != null)
+              Text(_catMessage!,
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: _catMood == 'remind' ? Colors.pink : Colors.amber.shade800)),
+
+            const SizedBox(height: 12),
+
+            // Swipe hint
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
-          ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('👈', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 4),
+                  Text('左滑存錢', style: TextStyle(fontSize: 12, color: Colors.amber.shade700)),
+                  Text('  ·  ', style: TextStyle(color: Colors.grey.shade400)),
+                  Text('右滑花錢', style: TextStyle(fontSize: 12, color: Colors.pink.shade400)),
+                  const SizedBox(width: 4),
+                  Text('👉', style: TextStyle(fontSize: 16)),
+                ],
+              ),
+            ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-          // Hint text
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _hintChip('👈 點左手存錢', Colors.amber),
-              const SizedBox(width: 12),
-              _hintChip('點右手花錢 👉', Colors.pink),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Recent transactions
-          if (state.transactions.isNotEmpty) _buildRecent(state),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHandItem({
-    required String emoji,
-    required String label,
-    required Color color,
-    required double size,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: 0.15),
-            border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
-            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 8)],
-          ),
-          alignment: Alignment.center,
-          child: Text(emoji, style: const TextStyle(fontSize: 30)),
+            if (state.transactions.isNotEmpty) _buildRecent(state),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(label,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
-      ],
-    );
-  }
-
-  Widget _hintChip(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(text, style: TextStyle(fontSize: 11, color: color)),
     );
   }
 
