@@ -100,6 +100,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     : null,
                 child: LuckyCat(
                   hunger: state.catHunger,
+                  totalSaved: state.totalSaved,
                   mood: _catMood,
                   message: _catMessage,
                   isWaving: _catWaving,
