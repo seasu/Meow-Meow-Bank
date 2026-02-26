@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { AppProvider } from "@/lib/context";
+import TabBar from "@/components/TabBar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +15,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-TW">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased pb-20">
+        <AppProvider>
+          {children}
+          <TabBar />
+        </AppProvider>
+      </body>
     </html>
   );
 }

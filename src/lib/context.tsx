@@ -3,9 +3,9 @@
 import {
   createContext,
   useContext,
-  useState,
+  useReducer,
   useEffect,
-  useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { AppState, TransactionType, Category, ParentConfig } from "./types";
@@ -25,16 +25,41 @@ import {
   getTotalSaved,
 } from "./store";
 
+type Action =
+  | { type: "INIT"; state: AppState }
+  | { type: "ADD_TX"; data: { amount: number; category: Category; type: TransactionType; note: string } }
+  | { type: "ADD_WISH"; data: { name: string; emoji: string; targetAmount: number } }
+  | { type: "WATER_WISH"; wishId: string; amount: number }
+  | { type: "DELETE_WISH"; wishId: string }
+  | { type: "TOGGLE_ACCESSORY"; accessoryId: string }
+  | { type: "APPROVE_TX"; txId: string }
+  | { type: "SEND_HEART"; txId: string }
+  | { type: "UPDATE_PARENT_CONFIG"; config: Partial<ParentConfig> }
+  | { type: "APPLY_INTEREST" };
+
+function reducer(state: AppState | null, action: Action): AppState | null {
+  if (action.type === "INIT") return action.state;
+  if (!state) return state;
+
+  switch (action.type) {
+    case "ADD_TX": return addTx(state, action.data);
+    case "ADD_WISH": return addW(state, action.data);
+    case "WATER_WISH": return waterW(state, action.wishId, action.amount);
+    case "DELETE_WISH": return deleteW(state, action.wishId);
+    case "TOGGLE_ACCESSORY": return toggleAcc(state, action.accessoryId);
+    case "APPROVE_TX": return approveTx(state, action.txId);
+    case "SEND_HEART": return sendH(state, action.txId);
+    case "UPDATE_PARENT_CONFIG": return updatePC(state, action.config);
+    case "APPLY_INTEREST": return applyI(state);
+    default: return state;
+  }
+}
+
 type AppContextValue = {
   state: AppState;
   balance: number;
   totalSaved: number;
-  addTransaction: (data: {
-    amount: number;
-    category: Category;
-    type: TransactionType;
-    note: string;
-  }) => void;
+  addTransaction: (data: { amount: number; category: Category; type: TransactionType; note: string }) => void;
   addWish: (data: { name: string; emoji: string; targetAmount: number }) => void;
   waterWish: (wishId: string, amount: number) => void;
   deleteWish: (wishId: string) => void;
@@ -48,53 +73,13 @@ type AppContextValue = {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState | null>(null);
+  const [state, dispatch] = useReducer(reducer, null);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    const s = loadState();
-    setState(updateHunger(s));
-  }, []);
-
-  const addTransaction = useCallback(
-    (data: { amount: number; category: Category; type: TransactionType; note: string }) => {
-      setState((prev) => (prev ? addTx(prev, data) : prev));
-    },
-    []
-  );
-
-  const addWish = useCallback(
-    (data: { name: string; emoji: string; targetAmount: number }) => {
-      setState((prev) => (prev ? addW(prev, data) : prev));
-    },
-    []
-  );
-
-  const waterWish = useCallback((wishId: string, amount: number) => {
-    setState((prev) => (prev ? waterW(prev, wishId, amount) : prev));
-  }, []);
-
-  const deleteWish = useCallback((wishId: string) => {
-    setState((prev) => (prev ? deleteW(prev, wishId) : prev));
-  }, []);
-
-  const toggleAccessory = useCallback((accessoryId: string) => {
-    setState((prev) => (prev ? toggleAcc(prev, accessoryId) : prev));
-  }, []);
-
-  const approveTransaction = useCallback((txId: string) => {
-    setState((prev) => (prev ? approveTx(prev, txId) : prev));
-  }, []);
-
-  const sendHeart = useCallback((txId: string) => {
-    setState((prev) => (prev ? sendH(prev, txId) : prev));
-  }, []);
-
-  const updateParentConfig = useCallback((config: Partial<ParentConfig>) => {
-    setState((prev) => (prev ? updatePC(prev, config) : prev));
-  }, []);
-
-  const applyInterest = useCallback(() => {
-    setState((prev) => (prev ? applyI(prev) : prev));
+    if (initialized.current) return;
+    initialized.current = true;
+    dispatch({ type: "INIT", state: updateHunger(loadState()) });
   }, []);
 
   if (!state) {
@@ -109,15 +94,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state,
     balance: getBalance(state.transactions),
     totalSaved: getTotalSaved(state.transactions),
-    addTransaction,
-    addWish,
-    waterWish,
-    deleteWish,
-    toggleAccessory,
-    approveTransaction,
-    sendHeart,
-    updateParentConfig,
-    applyInterest,
+    addTransaction: (data) => dispatch({ type: "ADD_TX", data }),
+    addWish: (data) => dispatch({ type: "ADD_WISH", data }),
+    waterWish: (wishId, amount) => dispatch({ type: "WATER_WISH", wishId, amount }),
+    deleteWish: (wishId) => dispatch({ type: "DELETE_WISH", wishId }),
+    toggleAccessory: (accessoryId) => dispatch({ type: "TOGGLE_ACCESSORY", accessoryId }),
+    approveTransaction: (txId) => dispatch({ type: "APPROVE_TX", txId }),
+    sendHeart: (txId) => dispatch({ type: "SEND_HEART", txId }),
+    updateParentConfig: (config) => dispatch({ type: "UPDATE_PARENT_CONFIG", config }),
+    applyInterest: () => dispatch({ type: "APPLY_INTEREST" }),
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
