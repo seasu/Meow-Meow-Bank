@@ -5,9 +5,7 @@ import 'utils/theme.dart';
 import 'utils/version.dart';
 import 'screens/home_screen.dart';
 import 'screens/stats_screen.dart';
-import 'screens/dream_tree_screen.dart';
-import 'screens/accessories_screen.dart';
-import 'screens/parent_screen.dart';
+import 'screens/more_screen.dart';
 
 void main() {
   runApp(const MeowMeowBankApp());
@@ -43,10 +41,10 @@ class _MainShellState extends State<MainShell> {
   static const _pages = <Widget>[
     HomeScreen(),
     StatsScreen(),
-    DreamTreeScreen(),
-    AccessoriesScreen(),
-    ParentScreen(),
+    MoreScreen(),
   ];
+
+  static const _titles = ['🏦 喵喵金幣屋', '📊 統計', '⚙️ 更多'];
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +54,7 @@ class _MainShellState extends State<MainShell> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Text('🏦 喵喵金幣屋'),
+            Text(_titles[_currentIndex]),
             const SizedBox(width: 6),
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
@@ -68,7 +66,10 @@ class _MainShellState extends State<MainShell> {
                 ),
                 child: Text(
                   'v$appVersion',
-                  style: TextStyle(fontSize: 10, color: Colors.amber.shade800, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.amber.shade800,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -84,12 +85,14 @@ class _MainShellState extends State<MainShell> {
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
         backgroundColor: Colors.white.withValues(alpha: 0.95),
         indicatorColor: Colors.amber.shade100,
+        height: 65,
         destinations: const [
-          NavigationDestination(icon: Text('🪙', style: TextStyle(fontSize: 22)), label: '記帳'),
-          NavigationDestination(icon: Text('📊', style: TextStyle(fontSize: 22)), label: '統計'),
-          NavigationDestination(icon: Text('🌳', style: TextStyle(fontSize: 22)), label: '夢想樹'),
-          NavigationDestination(icon: Text('✨', style: TextStyle(fontSize: 22)), label: '收藏'),
-          NavigationDestination(icon: Text('👨‍👩‍👧', style: TextStyle(fontSize: 22)), label: '家長'),
+          NavigationDestination(
+              icon: Text('🐱', style: TextStyle(fontSize: 26)), label: '存錢'),
+          NavigationDestination(
+              icon: Text('📊', style: TextStyle(fontSize: 26)), label: '統計'),
+          NavigationDestination(
+              icon: Text('⚙️', style: TextStyle(fontSize: 26)), label: '更多'),
         ],
       ),
     );
