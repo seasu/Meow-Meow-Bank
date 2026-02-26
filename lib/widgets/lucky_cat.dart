@@ -3,7 +3,7 @@ import '../utils/theme.dart';
 
 class LuckyCat extends StatelessWidget {
   final double hunger;
-  final double totalSaved;
+  final double balance;
   final String? mood;
   final String? message;
   final bool isWaving;
@@ -12,7 +12,7 @@ class LuckyCat extends StatelessWidget {
   const LuckyCat({
     super.key,
     required this.hunger,
-    this.totalSaved = 0,
+    this.balance = 0,
     this.mood,
     this.message,
     this.isWaving = false,
@@ -51,7 +51,7 @@ class LuckyCat extends StatelessWidget {
         AnimatedOpacity(
           opacity: currentMood == 'sleepy' ? 0.5 : 1.0,
           duration: const Duration(milliseconds: 500),
-          child: _CatBody(mood: currentMood, isWaving: isWaving, totalSaved: totalSaved),
+          child: _CatBody(mood: currentMood, isWaving: isWaving, balance: balance),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -106,14 +106,22 @@ class LuckyCat extends StatelessWidget {
 class _CatBody extends StatelessWidget {
   final String mood;
   final bool isWaving;
-  final double totalSaved;
+  final double balance;
 
-  const _CatBody({required this.mood, required this.isWaving, required this.totalSaved});
+  const _CatBody({required this.mood, required this.isWaving, required this.balance});
 
   @override
   Widget build(BuildContext context) {
-    // fatness: 1.0 (skinny) → 1.5 (max chonk) based on savings
-    final fatness = 1.0 + (totalSaved / 5000).clamp(0.0, 1.0) * 0.5;
+    // fatness based on balance:
+    //   balance <= -500 → 0.7 (very thin)
+    //   balance == 0    → 1.0 (normal)
+    //   balance >= 5000 → 1.5 (max chonk)
+    double fatness;
+    if (balance >= 0) {
+      fatness = 1.0 + (balance / 5000).clamp(0.0, 1.0) * 0.5;
+    } else {
+      fatness = 1.0 - (balance.abs() / 500).clamp(0.0, 1.0) * 0.3;
+    }
     final w = 140.0 * (0.85 + fatness * 0.15);
     final h = 150.0 * (0.85 + fatness * 0.15);
 

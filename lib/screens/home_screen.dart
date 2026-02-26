@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/transaction.dart';
 import '../models/constants.dart';
+import '../utils/sounds.dart';
 import '../widgets/lucky_cat.dart';
 import '../widgets/building_scene.dart';
 
@@ -88,6 +90,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           DragTarget<int>(
             onAcceptWithDetails: (details) {
               setState(() => _dragTotal += details.data);
+              SoundService.playCoinDrop();
+              HapticFeedback.mediumImpact();
             },
             builder: (context, candidateData, rejectedData) {
               return AnimatedContainer(
@@ -100,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     : null,
                 child: LuckyCat(
                   hunger: state.catHunger,
-                  totalSaved: state.totalSaved,
+                  balance: state.balance,
                   mood: _catMood,
                   message: _catMessage,
                   isWaving: _catWaving,
@@ -240,10 +244,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildDragMode(AppState state) {
-    final allCats = kCategories.where((c) => c.id != 'interest').toList();
     return Column(
       children: [
-        Text('👆 拖拉金幣到招財貓身上記帳！',
+        Text('👆 拖拉金幣到招財貓身上存錢！',
             style: TextStyle(fontSize: 12, color: Colors.amber.shade700)),
         const SizedBox(height: 8),
         Container(
@@ -271,22 +274,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('已投入金額', style: TextStyle(fontSize: 13, color: Colors.amber.shade800)),
+                  Text('🪙 已投入金額', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amber.shade800)),
                   Text('\$${_dragTotal.toInt()}',
                       style: TextStyle(
-                          fontSize: 22,
+                          fontSize: 28,
                           fontWeight: FontWeight.w900,
                           color: Colors.amber.shade700)),
                 ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: allCats
-                    .map((c) => _catChip(c, _categoryId == c.id,
-                        () => setState(() => _categoryId = c.id)))
-                    .toList(),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -307,9 +301,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _dragTotal > 0 && _categoryId.isNotEmpty
+                      onPressed: _dragTotal > 0
                           ? () {
-                              _submitTransaction(state, _dragTotal, _categoryId);
+                              _submitTransaction(state, _dragTotal, 'income');
                               setState(() { _dragTotal = 0; _note = ''; });
                             }
                           : null,
@@ -320,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('記帳喵！🐾',
+                      child: const Text('存錢喵！🐾',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
