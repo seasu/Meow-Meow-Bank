@@ -27,13 +27,7 @@ class LuckyCat extends StatelessWidget {
         : hunger < 50
             ? 'neutral'
             : 'happy';
-    final baseMsg = hunger < 20
-        ? '好久沒記帳了，我好餓喵...'
-        : hunger < 50
-            ? '嗨，快來記帳吧！'
-            : '喵～今天也要好好記帳喔！';
     final currentMood = mood ?? baseMood;
-    final currentMsg = message ?? baseMsg;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -59,42 +53,6 @@ class LuckyCat extends StatelessWidget {
             duration: const Duration(milliseconds: 500),
             child: _CatBody(mood: currentMood, isWaving: isWaving, balance: balance),
           ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 130,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: hunger / 100,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation(
-                hunger > 60
-                    ? Colors.green
-                    : hunger > 30
-                        ? Colors.amber
-                        : Colors.red,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text('飽食度 ${hunger.toInt()}%',
-            style: TextStyle(fontSize: 11, color: Colors.amber.shade800)),
-        const SizedBox(height: 8),
-        Text(
-          currentMsg,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: currentMood == 'remind'
-                ? Colors.pink
-                : currentMood == 'excited'
-                    ? Colors.amber.shade800
-                    : AppColors.darkText,
-          ),
-          textAlign: TextAlign.center,
-        ),
       ],
     );
   }
