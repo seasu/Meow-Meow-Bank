@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_state.dart';
 import 'utils/theme.dart';
+import 'utils/version.dart';
 import 'screens/home_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/dream_tree_screen.dart';
@@ -52,6 +53,17 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('🏦 喵喵金幣屋'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: Text(
+                'v$appVersion',
+                style: TextStyle(fontSize: 11, color: Colors.amber.shade400),
+              ),
+            ),
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _currentIndex,

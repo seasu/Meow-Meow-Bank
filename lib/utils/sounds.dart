@@ -12,8 +12,8 @@ class SoundService {
 
   static Future<void> playCoinDrop() async {
     try {
-      final wav = _generateCoinSound();
-      await _p.play(BytesSource(wav), volume: 0.5);
+      final wav = _generateCashRegisterSound();
+      await _p.play(BytesSource(wav), volume: 0.6);
     } catch (_) {}
   }
 
@@ -24,18 +24,51 @@ class SoundService {
     } catch (_) {}
   }
 
-  static Uint8List _generateCoinSound() {
+  /// Cash register "ka-ching!" sound
+  static Uint8List _generateCashRegisterSound() {
     const sampleRate = 22050;
-    const duration = 0.25;
+    const duration = 0.55;
     final numSamples = (sampleRate * duration).toInt();
     final samples = Float64List(numSamples);
 
     for (var i = 0; i < numSamples; i++) {
       final t = i / sampleRate;
-      final env = (1.0 - t / duration) * (1.0 - t / duration);
-      final freq = 1200 + 1200 * (1.0 - t / duration);
-      samples[i] = env * 0.5 * sin(2 * pi * freq * t);
-      samples[i] += env * 0.3 * sin(2 * pi * freq * 2 * t);
+      double v = 0;
+
+      // Phase 1: mechanical click (0-0.05s)
+      if (t < 0.05) {
+        final clickEnv = (1.0 - t / 0.05);
+        v += clickEnv * 0.4 * sin(2 * pi * 120 * t);
+        v += clickEnv * 0.3 * (Random().nextDouble() * 2 - 1);
+      }
+
+      // Phase 2: drawer slide metallic noise (0.03-0.12s)
+      if (t >= 0.03 && t < 0.12) {
+        final slideT = (t - 0.03) / 0.09;
+        final slideEnv = sin(pi * slideT) * 0.3;
+        v += slideEnv * sin(2 * pi * 280 * t);
+        v += slideEnv * 0.5 * sin(2 * pi * 560 * t);
+      }
+
+      // Phase 3: bell ring "ching!" (0.08-0.55s)
+      if (t >= 0.08) {
+        final bellT = t - 0.08;
+        final bellEnv = exp(-bellT * 6) * 0.7;
+        v += bellEnv * sin(2 * pi * 2200 * t);
+        v += bellEnv * 0.6 * sin(2 * pi * 3300 * t);
+        v += bellEnv * 0.3 * sin(2 * pi * 4400 * t);
+        v += bellEnv * 0.15 * sin(2 * pi * 5500 * t);
+      }
+
+      // Phase 4: secondary bell shimmer (0.15-0.55s)
+      if (t >= 0.15) {
+        final shimT = t - 0.15;
+        final shimEnv = exp(-shimT * 8) * 0.35;
+        v += shimEnv * sin(2 * pi * 2600 * t);
+        v += shimEnv * 0.5 * sin(2 * pi * 3900 * t);
+      }
+
+      samples[i] = v.clamp(-1.0, 1.0);
     }
 
     return _samplesToWav(samples, sampleRate);
