@@ -18,7 +18,7 @@ Meow Meow Bank (喵喵金幣屋) — Children's financial literacy Flutter app (
 
 ### Architecture
 
-- **Screens**: `home_screen.dart` (drag+form recording), `accessories_screen.dart` (collection/equip), `parent_screen.dart` (dashboard)
+- **Screens**: `home_screen.dart` (drag+form recording), `stats_screen.dart` (statistics/charts), `dream_tree_screen.dart` (wish list), `accessories_screen.dart` (collection/equip), `parent_screen.dart` (dashboard)
 - **State**: `AppState` (ChangeNotifier) in `lib/providers/app_state.dart` — Provider pattern
 - **Models**: `Transaction`, `Category`, `Wish` in `lib/models/transaction.dart`; `AccessoryDef`, constants in `lib/models/constants.dart`
 - **Widgets**: `LuckyCat` (CustomPaint mascot), `BuildingScene` (level progression)
