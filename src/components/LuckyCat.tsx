@@ -9,6 +9,7 @@ type LuckyCatProps = {
   mood?: Mood;
   message?: string;
   isWaving?: boolean;
+  headTilt?: boolean;
   equippedAccessories?: string[];
 };
 
@@ -17,6 +18,7 @@ export default function LuckyCat({
   mood,
   message,
   isWaving = false,
+  headTilt = false,
   equippedAccessories = [],
 }: LuckyCatProps) {
   const baseMood: Mood = useMemo(() => {
@@ -48,7 +50,7 @@ export default function LuckyCat({
         </div>
       )}
 
-      <div className={`relative ${catOpacity} transition-opacity duration-500`}>
+      <div className={`relative ${catOpacity} transition-opacity duration-500 ${headTilt ? "animate-head-tilt" : ""}`}>
         <div className="w-32 h-36 relative">
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-28 h-28 bg-amber-300 rounded-[50%_50%_45%_45%]" />
 
