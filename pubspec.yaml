@@ -1,7 +1,7 @@
 name: meow_meow_bank
 description: "喵喵金幣屋 — 兒童理財記帳 App"
 publish_to: 'none'
-version: 2.0.0+22
+version: 2.1.0+23
 
 environment:
   sdk: ^3.11.0
