@@ -104,51 +104,7 @@ class MoreScreen extends StatelessWidget {
         // Interest settings
         _sectionTitle('🏦 虛擬利息'),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('利率', style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
-                  Text('${state.interestRate}%',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('計息週期', style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
-                  Text(state.interestPeriod == 'weekly' ? '每週' : '每月',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: state.balance > 0 ? () => state.applyInterest() : null,
-                  icon: const Text('💰', style: TextStyle(fontSize: 18)),
-                  label: const Text('發放利息', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade200,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        _InterestCard(state: state),
         const SizedBox(height: 20),
 
         // Account management
@@ -358,6 +314,181 @@ class MoreScreen extends StatelessWidget {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text('永久刪除'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InterestCard extends StatefulWidget {
+  final AppState state;
+  const _InterestCard({required this.state});
+
+  @override
+  State<_InterestCard> createState() => _InterestCardState();
+}
+
+class _InterestCardState extends State<_InterestCard> {
+  bool _editing = false;
+  late double _rate;
+  late String _period;
+  String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _rate = widget.state.interestRate;
+    _period = widget.state.interestPeriod;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    final interestPreview = state.balance > 0
+        ? (state.balance * state.interestRate / 100).round()
+        : 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
+      ),
+      child: Column(
+        children: [
+          if (!_editing) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('利率', style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+                Text('${state.interestRate}%', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('計息週期', style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+                Text(state.interestPeriod == 'weekly' ? '每週' : '每月',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            if (state.balance > 0) ...[
+              const SizedBox(height: 4),
+              Text('預估本次利息: \$$interestPreview',
+                  style: TextStyle(fontSize: 12, color: Colors.blue.shade300)),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: state.balance > 0
+                          ? () {
+                              state.applyInterest();
+                              setState(() => _message = '✅ 已發放 \$$interestPreview 利息！');
+                              Future.delayed(const Duration(seconds: 3), () {
+                                if (mounted) setState(() => _message = null);
+                              });
+                            }
+                          : null,
+                      icon: const Text('💰', style: TextStyle(fontSize: 16)),
+                      label: const Text('發放利息', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade200,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: () => setState(() {
+                      _editing = true;
+                      _rate = state.interestRate;
+                      _period = state.interestPeriod;
+                    }),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text('⚙️ 設定'),
+                  ),
+                ),
+              ],
+            ),
+            if (_message != null) ...[
+              const SizedBox(height: 8),
+              Text(_message!, style: TextStyle(fontSize: 13, color: Colors.green.shade600, fontWeight: FontWeight.bold)),
+            ],
+            if (state.balance <= 0) ...[
+              const SizedBox(height: 8),
+              Text('餘額為 0，無法發放利息', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+            ],
+          ] else ...[
+            // Edit mode
+            Row(
+              children: [
+                Text('利率 %', style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+                const Spacer(),
+                IconButton(
+                  onPressed: _rate > 0.5 ? () => setState(() => _rate = (_rate - 0.5).clamp(0.5, 50)) : null,
+                  icon: const Icon(Icons.remove_circle_outline),
+                  iconSize: 28,
+                ),
+                Text('${_rate.toStringAsFixed(1)}%',
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                IconButton(
+                  onPressed: _rate < 50 ? () => setState(() => _rate = (_rate + 0.5).clamp(0.5, 50)) : null,
+                  icon: const Icon(Icons.add_circle_outline),
+                  iconSize: 28,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text('計息週期', style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+                const Spacer(),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'weekly', label: Text('每週')),
+                    ButtonSegment(value: 'monthly', label: Text('每月')),
+                  ],
+                  selected: {_period},
+                  onSelectionChanged: (v) => setState(() => _period = v.first),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => setState(() => _editing = false),
+                    child: const Text('取消'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      state.updateInterestConfig(_rate, _period);
+                      setState(() => _editing = false);
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.white),
+                    child: const Text('儲存設定', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
