@@ -47,12 +47,19 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
 
   void _add(int v) {
     HapticFeedback.lightImpact();
-    if (widget.mode == AmountMode.save) SoundService.playCoinDrop();
+    if (widget.mode == AmountMode.save) {
+      SoundService.playCoinDrop();
+    } else {
+      SoundService.playSpendMoney();
+    }
     setState(() => _amount += v);
   }
 
   void _sub(int v) {
     HapticFeedback.lightImpact();
+    if (widget.mode == AmountMode.spend) {
+      SoundService.playSpendMoney();
+    }
     setState(() => _amount = (_amount - v).clamp(0, 999999));
   }
 
