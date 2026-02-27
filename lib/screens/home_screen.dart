@@ -49,8 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => const AmountInputScreen(
           title: '存多少錢？',
-          emoji: '🐱',
           color: Colors.amber,
+          mode: AmountMode.save,
         ),
       ),
     );
@@ -75,8 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(
             builder: (_) => AmountInputScreen(
               title: '${cat.emoji} 花多少錢？',
-              emoji: '👦',
               color: Colors.pink.shade400,
+              mode: AmountMode.spend,
             ),
           ),
         );
