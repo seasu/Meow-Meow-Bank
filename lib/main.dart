@@ -95,7 +95,12 @@ class _MainShellState extends State<MainShell> {
   void _showAddAccount(AppState state) {
     String emoji = '🐱';
     final nameCtrl = TextEditingController();
-    final emojis = ['🐱', '🐶', '🐰', '🐻', '🦊', '🐸', '🐧', '🦄'];
+    final emojis = [
+      '🐱', '🐶', '🐰', '🐻', '🦊', '🐸', '🐧', '🦄',
+      '🐼', '🐨', '🦁', '🐯', '🐮', '🐷', '🐵', '🐔',
+      '🦋', '🐢', '🐙', '🦖', '👦', '👧', '👶', '🧒',
+      '👸', '🤴', '🦸', '🧙', '🎅', '🤖', '👽', '💀',
+    ];
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -105,22 +110,25 @@ class _MainShellState extends State<MainShell> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Wrap(
-                spacing: 8,
-                children: emojis
-                    .map((e) => GestureDetector(
-                          onTap: () => setS(() => emoji = e),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: emoji == e ? Colors.amber.shade100 : null,
-                              borderRadius: BorderRadius.circular(10),
-                              border: emoji == e ? Border.all(color: Colors.amber, width: 2) : null,
-                            ),
-                            child: Text(e, style: const TextStyle(fontSize: 28)),
-                          ),
-                        ))
-                    .toList(),
+              SizedBox(
+                height: 160,
+                child: GridView.count(
+                  crossAxisCount: 8,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
+                  children: emojis.map((e) => GestureDetector(
+                    onTap: () => setS(() => emoji = e),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: emoji == e ? Colors.amber.shade100 : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: emoji == e ? Border.all(color: Colors.amber, width: 2) : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(e, style: const TextStyle(fontSize: 22)),
+                    ),
+                  )).toList(),
+                ),
               ),
               const SizedBox(height: 16),
               TextField(

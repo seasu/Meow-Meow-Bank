@@ -195,6 +195,11 @@ class MoreScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton.icon(
+                        onPressed: () => _showEditAccount(context, state, acc.id, acc.name, acc.emoji),
+                        icon: Icon(Icons.edit, size: 16, color: Colors.blue.shade400),
+                        label: Text('編輯', style: TextStyle(fontSize: 12, color: Colors.blue.shade400)),
+                      ),
+                      TextButton.icon(
                         onPressed: () => _confirmClearData(context, state, acc.id, acc.name),
                         icon: Icon(Icons.cleaning_services, size: 16, color: Colors.orange.shade400),
                         label: Text('清除記錄', style: TextStyle(fontSize: 12, color: Colors.orange.shade400)),
@@ -231,6 +236,83 @@ class MoreScreen extends StatelessWidget {
             Text(label, style: TextStyle(fontSize: 11, color: color)),
             const SizedBox(height: 2),
             Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _avatarEmojis = [
+    '🐱', '🐶', '🐰', '🐻', '🦊', '🐸', '🐧', '🦄',
+    '🐼', '🐨', '🦁', '🐯', '🐮', '🐷', '🐵', '🐔',
+    '🦋', '🐢', '🐙', '🦖', '👦', '👧', '👶', '🧒',
+    '👸', '🤴', '🦸', '🧙', '🎅', '🤖', '👽', '💀',
+  ];
+
+  void _showEditAccount(BuildContext context, AppState state, String accountId, String currentName, String currentEmoji) {
+    String emoji = currentEmoji;
+    final nameCtrl = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Text('✏️ 編輯帳戶', textAlign: TextAlign.center),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 160,
+                child: GridView.count(
+                  crossAxisCount: 8,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
+                  children: _avatarEmojis.map((e) => GestureDetector(
+                    onTap: () => setS(() => emoji = e),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: emoji == e ? Colors.amber.shade100 : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: emoji == e ? Border.all(color: Colors.amber, width: 2) : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(e, style: const TextStyle(fontSize: 22)),
+                    ),
+                  )).toList(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '名字',
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            ElevatedButton(
+              onPressed: () {
+                final n = nameCtrl.text.trim();
+                if (n.isNotEmpty) {
+                  state.renameAccount(accountId, n, emoji);
+                  Navigator.pop(ctx);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              ),
+              child: const Text('儲存', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
       ),
