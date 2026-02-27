@@ -165,32 +165,48 @@ class MoreScreen extends StatelessWidget {
                     : null,
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  Text(acc.emoji, style: const TextStyle(fontSize: 28)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(acc.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                        if (acc.id == state.currentAccountId)
-                          Text('目前使用中', style: TextStyle(fontSize: 11, color: Colors.amber.shade700)),
-                      ],
-                    ),
+                  Row(
+                    children: [
+                      Text(acc.emoji, style: const TextStyle(fontSize: 28)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(acc.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                            if (acc.id == state.currentAccountId)
+                              Text('目前使用中', style: TextStyle(fontSize: 11, color: Colors.amber.shade700)),
+                          ],
+                        ),
+                      ),
+                      if (acc.id == state.currentAccountId)
+                        Icon(Icons.check_circle, color: Colors.green.shade400, size: 22),
+                      if (acc.id != state.currentAccountId)
+                        TextButton(
+                          onPressed: () => state.switchAccount(acc.id),
+                          child: const Text('切換'),
+                        ),
+                    ],
                   ),
-                  if (acc.id == state.currentAccountId)
-                    Icon(Icons.check_circle, color: Colors.green.shade400, size: 22),
-                  if (acc.id != state.currentAccountId)
-                    TextButton(
-                      onPressed: () => state.switchAccount(acc.id),
-                      child: const Text('切換'),
-                    ),
-                  if (state.accounts.length > 1)
-                    IconButton(
-                      onPressed: () => _confirmDelete(context, state, acc.id, acc.name),
-                      icon: Icon(Icons.delete_outline, size: 20, color: Colors.grey.shade400),
-                    ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _confirmClearData(context, state, acc.id, acc.name),
+                        icon: Icon(Icons.cleaning_services, size: 16, color: Colors.orange.shade400),
+                        label: Text('清除記錄', style: TextStyle(fontSize: 12, color: Colors.orange.shade400)),
+                      ),
+                      if (state.accounts.length > 1)
+                        TextButton.icon(
+                          onPressed: () => _confirmDelete(context, state, acc.id, acc.name),
+                          icon: Icon(Icons.delete_forever, size: 16, color: Colors.red.shade300),
+                          label: Text('刪除帳戶', style: TextStyle(fontSize: 12, color: Colors.red.shade300)),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             )),
@@ -221,18 +237,43 @@ class MoreScreen extends StatelessWidget {
     );
   }
 
+  void _confirmClearData(BuildContext context, AppState state, String accountId, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('🧹 清除記帳資料'),
+        content: Text('確定要清除「$name」的所有記帳資料嗎？\n\n帳戶會保留，但所有收支紀錄將被刪除。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () {
+              if (accountId == state.currentAccountId) {
+                state.clearAccountData();
+              }
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            child: const Text('確定清除'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmDelete(BuildContext context, AppState state, String id, String name) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('刪除帳戶'),
-        content: Text('確定要刪除「$name」嗎？所有記錄將被清除。'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('⚠️ 刪除帳戶'),
+        content: Text('確定要刪除「$name」嗎？\n\n帳戶和所有記錄將永久刪除，無法復原。'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           ElevatedButton(
             onPressed: () { state.deleteAccount(id); Navigator.pop(ctx); },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('刪除'),
+            child: const Text('永久刪除'),
           ),
         ],
       ),

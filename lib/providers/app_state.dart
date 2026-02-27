@@ -230,6 +230,19 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> clearAccountData() async {
+    _transactions = [];
+    _wishes = [];
+    _lastRecordDate = null;
+    _streak = 0;
+    _catHunger = kMaxHunger;
+    _buildingLevel = 0;
+    _unlockedAccessories = [];
+    _equippedAccessories = [];
+    await _save();
+    notifyListeners();
+  }
+
   // Existing methods
   String _today() => DateTime.now().toIso8601String().split('T')[0];
 
