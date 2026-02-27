@@ -262,21 +262,22 @@ class MoreScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 160,
+                height: 240,
+                width: double.maxFinite,
                 child: GridView.count(
-                  crossAxisCount: 8,
-                  mainAxisSpacing: 4,
-                  crossAxisSpacing: 4,
+                  crossAxisCount: 5,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
                   children: _avatarEmojis.map((e) => GestureDetector(
                     onTap: () => setS(() => emoji = e),
                     child: Container(
                       decoration: BoxDecoration(
                         color: emoji == e ? Colors.amber.shade100 : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: emoji == e ? Border.all(color: Colors.amber, width: 2) : null,
+                        borderRadius: BorderRadius.circular(12),
+                        border: emoji == e ? Border.all(color: Colors.amber, width: 3) : null,
                       ),
                       alignment: Alignment.center,
-                      child: Text(e, style: const TextStyle(fontSize: 22)),
+                      child: Text(e, style: const TextStyle(fontSize: 32)),
                     ),
                   )).toList(),
                 ),
