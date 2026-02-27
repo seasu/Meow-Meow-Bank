@@ -81,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
         if (amount != null && amount > 0 && mounted) {
+          SoundService.playSpendMoney();
           HapticFeedback.mediumImpact();
           state.addTransaction(amount, cat, TransactionType.expense, '');
           setState(() {
