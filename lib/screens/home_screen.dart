@@ -10,6 +10,7 @@ import '../widgets/lucky_cat.dart';
 import '../widgets/spending_boy.dart';
 import 'amount_input_screen.dart';
 import 'history_screen.dart';
+import 'receipt_scan_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -92,6 +93,21 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
     );
+  }
+
+  void _onScanReceipt(AppState state) async {
+    final recorded = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const ReceiptScanScreen()),
+    );
+    if (recorded == true && mounted) {
+      SoundService.playSpendMoney();
+      setState(() {
+        _catMood = 'remind';
+        _catMessage = '發票記帳完成！📷✅';
+      });
+      _resetAnimAfter();
+    }
   }
 
   void _resetAnimAfter() {
@@ -317,6 +333,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 4),
                   Text('👉', style: TextStyle(fontSize: 16)),
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Scan receipt button
+            GestureDetector(
+              onTap: () => _onScanReceipt(state),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.pink.shade300, Colors.orange.shade300],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.pink.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('📷', style: TextStyle(fontSize: 22)),
+                    SizedBox(width: 8),
+                    Text(
+                      '掃發票自動記帳',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
