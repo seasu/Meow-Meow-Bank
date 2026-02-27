@@ -90,21 +90,18 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
               ),
             ),
 
-            const Spacer(flex: 1),
-
-            // Animated character
+            // Animated character (3x size)
             SizedBox(
-              height: 140,
+              height: 360,
+              width: double.infinity,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Character
                   if (isSave)
-                    LuckyCat(hunger: 100, balance: _amount.toDouble(), isWaving: true)
+                    SizedBox(width: 360, height: 360, child: FittedBox(child: LuckyCat(hunger: 100, balance: _amount.toDouble(), isWaving: true)))
                   else
-                    SpendingBoy(size: 120, idleFrame: _animFrame),
+                    SizedBox(width: 360, height: 360, child: FittedBox(child: SpendingBoy(size: 120, idleFrame: _animFrame))),
 
-                  // Flying coins/bills animation
                   ..._buildFlyingMoney(isSave),
                 ],
               ),
@@ -113,7 +110,7 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
             Text(widget.title,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c)),
 
-            const Spacer(flex: 1),
+            const SizedBox(height: 8),
 
             // + buttons
             Padding(
@@ -207,33 +204,31 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
   List<Widget> _buildFlyingMoney(bool isSave) {
     if (_amount <= 0) return [];
     final items = <Widget>[];
-    for (var i = 0; i < 6; i++) {
-      final phase = (_animFrame * 0.08 + i * 1.05) % (2 * pi);
-      final radius = 55.0 + sin(phase * 2) * 10;
+    for (var i = 0; i < 8; i++) {
+      final phase = (_animFrame * 0.08 + i * 0.8) % (2 * pi);
+      final radius = 140.0 + sin(phase * 2) * 30;
       final dx = cos(phase) * radius;
-      final dy = sin(phase) * radius * 0.5 - 20;
-      final opacity = (0.3 + sin(phase) * 0.4).clamp(0.1, 0.8);
+      final dy = sin(phase) * radius * 0.5 - 40;
+      final opacity = (0.4 + sin(phase) * 0.4).clamp(0.2, 0.9);
 
       if (isSave) {
-        // Coins flying IN toward cat
         items.add(Positioned(
-          left: 60 + dx,
-          top: 60 + dy,
+          left: 160 + dx,
+          top: 150 + dy,
           child: Opacity(
             opacity: opacity,
-            child: Text('🪙', style: TextStyle(fontSize: 14 + sin(phase) * 4)),
+            child: Text('🪙', style: TextStyle(fontSize: 36 + sin(phase) * 8)),
           ),
         ));
       } else {
-        // Bills flying OUT from boy
         items.add(Positioned(
-          left: 60 + dx * 1.2,
-          top: 50 + dy,
+          left: 160 + dx * 1.2,
+          top: 140 + dy,
           child: Opacity(
             opacity: opacity,
             child: Transform.rotate(
               angle: phase,
-              child: Text('💸', style: TextStyle(fontSize: 12 + cos(phase) * 3)),
+              child: Text('💸', style: TextStyle(fontSize: 32 + cos(phase) * 6)),
             ),
           ),
         ));
