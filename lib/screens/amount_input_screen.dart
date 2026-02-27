@@ -35,9 +35,7 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
   void initState() {
     super.initState();
     _animTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      if (mounted) {
-        setState(() => _animFrame++);
-      }
+      if (mounted) setState(() => _animFrame++);
     });
   }
 
@@ -49,9 +47,7 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
 
   void _add(int v) {
     HapticFeedback.lightImpact();
-    if (widget.mode == AmountMode.save) {
-      SoundService.playCoinDrop();
-    }
+    if (widget.mode == AmountMode.save) SoundService.playCoinDrop();
     setState(() => _amount += v);
   }
 
@@ -70,127 +66,125 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, size: 28),
-                    color: Colors.grey,
+            // Top bar (compact)
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, size: 24),
+                  color: Colors.grey,
+                ),
+                const Spacer(),
+                if (_amount > 0)
+                  TextButton(
+                    onPressed: () => setState(() => _amount = 0),
+                    child: Text('歸零', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
                   ),
-                  const Spacer(),
-                  if (_amount > 0)
-                    TextButton(
-                      onPressed: () => setState(() => _amount = 0),
-                      child: Text('歸零', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
-                    ),
-                ],
+              ],
+            ),
+
+            // Character area — takes all remaining space
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final areaW = constraints.maxWidth;
+                  final areaH = constraints.maxHeight;
+                  final charSize = min(areaW * 0.6, areaH * 0.7);
+
+                  return Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Character centered
+                      SizedBox(
+                        width: charSize,
+                        height: charSize,
+                        child: FittedBox(
+                          child: isSave
+                              ? LuckyCat(hunger: 100, balance: _amount.toDouble(), isWaving: true)
+                              : SpendingBoy(size: 120, idleFrame: _animFrame),
+                        ),
+                      ),
+                      // Flying money
+                      if (_amount > 0)
+                        ..._buildFlyingMoney(isSave, areaW, areaH),
+                    ],
+                  );
+                },
               ),
             ),
 
-            // Animated character (3x size)
-            SizedBox(
-              height: 360,
-              width: double.infinity,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (isSave)
-                    SizedBox(width: 360, height: 360, child: FittedBox(child: LuckyCat(hunger: 100, balance: _amount.toDouble(), isWaving: true)))
-                  else
-                    SizedBox(width: 360, height: 360, child: FittedBox(child: SpendingBoy(size: 120, idleFrame: _animFrame))),
-
-                  ..._buildFlyingMoney(isSave),
-                ],
-              ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(widget.title,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c)),
             ),
-            const SizedBox(height: 4),
-            Text(widget.title,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c)),
-
-            const SizedBox(height: 8),
 
             // + buttons
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
-                children: _denoms
-                    .map((d) => Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: _AmountButton(label: '+$d', color: c, onTap: () => _add(d), isAdd: true),
-                          ),
-                        ))
-                    .toList(),
+                children: _denoms.map((d) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: _AmountButton(label: '+$d', color: c, onTap: () => _add(d), isAdd: true),
+                  ),
+                )).toList(),
               ),
             ),
-
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // Amount display
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.symmetric(vertical: 20),
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(color: c.withValues(alpha: 0.15), blurRadius: 20, spreadRadius: 2)],
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: c.withValues(alpha: 0.12), blurRadius: 16)],
               ),
               child: Center(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 150),
-                  child: Text(
-                    '\$ $_amount',
-                    key: ValueKey(_amount),
-                    style: TextStyle(
-                      fontSize: _amount > 99999 ? 40 : 56,
-                      fontWeight: FontWeight.w900,
-                      color: _amount > 0 ? c : Colors.grey.shade300,
-                    ),
-                  ),
+                  child: Text('\$ $_amount', key: ValueKey(_amount),
+                    style: TextStyle(fontSize: _amount > 99999 ? 36 : 48, fontWeight: FontWeight.w900, color: _amount > 0 ? c : Colors.grey.shade300)),
                 ),
               ),
             ),
-
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // - buttons
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
-                children: _denoms
-                    .map((d) => Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: _AmountButton(label: '-$d', color: Colors.grey.shade500, onTap: _amount >= d ? () => _sub(d) : null, isAdd: false),
-                          ),
-                        ))
-                    .toList(),
+                children: _denoms.map((d) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: _AmountButton(label: '-$d', color: Colors.grey.shade500, onTap: _amount >= d ? () => _sub(d) : null, isAdd: false),
+                  ),
+                )).toList(),
               ),
             ),
-
-            const Spacer(flex: 2),
+            const SizedBox(height: 12),
 
             // Confirm
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: SizedBox(
                 width: double.infinity,
-                height: 64,
+                height: 56,
                 child: ElevatedButton(
                   onPressed: _amount > 0 ? () => Navigator.pop(context, _amount.toDouble()) : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: c,
-                    foregroundColor: Colors.white,
+                    backgroundColor: c, foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey.shade200,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                     elevation: _amount > 0 ? 4 : 0,
                   ),
                   child: Text(
                     _amount > 0 ? '確定 \$$_amount！🐾' : '請輸入金額',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _amount > 0 ? Colors.white : Colors.grey.shade400),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _amount > 0 ? Colors.white : Colors.grey.shade400),
                   ),
                 ),
               ),
@@ -201,34 +195,48 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
     );
   }
 
-  List<Widget> _buildFlyingMoney(bool isSave) {
-    if (_amount <= 0) return [];
+  List<Widget> _buildFlyingMoney(bool isSave, double areaW, double areaH) {
+    final cx = areaW / 2;
+    final cy = areaH / 2;
     final items = <Widget>[];
+
     for (var i = 0; i < 8; i++) {
-      final phase = (_animFrame * 0.08 + i * 0.8) % (2 * pi);
-      final radius = 140.0 + sin(phase * 2) * 30;
-      final dx = cos(phase) * radius;
-      final dy = sin(phase) * radius * 0.5 - 40;
-      final opacity = (0.4 + sin(phase) * 0.4).clamp(0.2, 0.9);
+      final t = (_animFrame * 0.04 + i * 0.125) % 1.0;
 
       if (isSave) {
+        // Coins fly FROM edge IN toward cat center
+        final angle = i * pi * 2 / 8;
+        final startX = cx + cos(angle) * areaW * 0.55;
+        final startY = cy + sin(angle) * areaH * 0.5;
+        final curX = startX + (cx - startX) * t;
+        final curY = startY + (cy - startY) * t;
+        final opacity = t < 0.2 ? t / 0.2 : (t > 0.85 ? (1 - t) / 0.15 : 1.0);
+
         items.add(Positioned(
-          left: 160 + dx,
-          top: 150 + dy,
+          left: curX - 16,
+          top: curY - 16,
           child: Opacity(
-            opacity: opacity,
-            child: Text('🪙', style: TextStyle(fontSize: 36 + sin(phase) * 8)),
+            opacity: opacity.clamp(0.0, 1.0),
+            child: Text('🪙', style: TextStyle(fontSize: 28 + t * 8)),
           ),
         ));
       } else {
+        // Bills fly FROM center OUT to edges
+        final angle = i * pi * 2 / 8 + _animFrame * 0.02;
+        final endX = cx + cos(angle) * areaW * 0.5;
+        final endY = cy + sin(angle) * areaH * 0.45;
+        final curX = cx + (endX - cx) * t;
+        final curY = cy + (endY - cy) * t;
+        final opacity = t < 0.1 ? t / 0.1 : (t > 0.7 ? (1 - t) / 0.3 : 1.0);
+
         items.add(Positioned(
-          left: 160 + dx * 1.2,
-          top: 140 + dy,
+          left: curX - 14,
+          top: curY - 14,
           child: Opacity(
-            opacity: opacity,
+            opacity: opacity.clamp(0.0, 1.0),
             child: Transform.rotate(
-              angle: phase,
-              child: Text('💸', style: TextStyle(fontSize: 32 + cos(phase) * 6)),
+              angle: t * pi * 2,
+              child: Text('💸', style: TextStyle(fontSize: 24 + (1 - t) * 8)),
             ),
           ),
         ));
@@ -251,19 +259,18 @@ class _AmountButton extends StatelessWidget {
     final enabled = onTap != null;
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        height: 56,
+      child: Container(
+        height: 48,
         decoration: BoxDecoration(
           color: enabled ? (isAdd ? color.withValues(alpha: 0.15) : Colors.grey.shade100) : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: enabled ? (isAdd ? color.withValues(alpha: 0.4) : Colors.grey.shade300) : Colors.grey.shade200,
             width: 1.5,
           ),
         ),
         alignment: Alignment.center,
-        child: Text(label, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: enabled ? (isAdd ? color : Colors.grey.shade600) : Colors.grey.shade300)),
+        child: Text(label, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: enabled ? (isAdd ? color : Colors.grey.shade600) : Colors.grey.shade300)),
       ),
     );
   }
