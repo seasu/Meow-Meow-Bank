@@ -8,6 +8,14 @@
 -dontwarn com.google.mlkit.**
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
+-keep class com.google.mlkit.vision.text.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_text_common.** { *; }
+
+# TFLite (used internally by ML Kit)
+-keep class org.tensorflow.** { *; }
+-dontwarn org.tensorflow.**
+-keep class org.tensorflow.lite.** { *; }
+-dontwarn org.tensorflow.lite.**
 
 # Keep annotations and generic signatures (needed by many reflection-based libs)
 -keepattributes *Annotation*
