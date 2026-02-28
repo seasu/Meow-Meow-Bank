@@ -22,10 +22,10 @@ class ReceiptScanScreen extends StatefulWidget {
 class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
   final _picker = ImagePicker();
   final _noteController = TextEditingController();
+  final _amountController = TextEditingController();
 
   _ScanState _state = _ScanState.initial;
   Uint8List? _imageBytes;
-  double _amount = 0;
   TxCategory _selectedCategory =
       kCategories.firstWhere((c) => c.id == 'shopping');
   bool _ocrAvailable = true;
@@ -36,6 +36,7 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
   @override
   void dispose() {
     _noteController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
@@ -81,8 +82,9 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
     try {
       final result = await ReceiptParser.parseReceipt(bytes);
       if (!mounted) return;
+      final amt = result?.amount;
       setState(() {
-        _amount = result?.amount ?? 0;
+        _amountController.text = amt != null && amt > 0 ? amt.toInt().toString() : '';
         _noteController.text = result?.suggestedNote ?? '';
         _ocrAvailable = result != null;
         _state = _ScanState.confirm;
@@ -91,7 +93,7 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
       debugPrint('❌ [parseReceipt] $e\n$st');
       if (!mounted) return;
       setState(() {
-        _amount = 0;
+        _amountController.clear();
         _ocrAvailable = false;
         _state = _ScanState.confirm;
       });
@@ -99,12 +101,13 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
   }
 
   void _confirm(AppState state) {
-    if (_amount <= 0) return;
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+    if (amount <= 0) return;
     try {
       SoundService.playSpendMoney();
       HapticFeedback.mediumImpact();
       state.addTransaction(
-          _amount, _selectedCategory, TransactionType.expense, _noteController.text.trim());
+          amount, _selectedCategory, TransactionType.expense, _noteController.text.trim());
       Navigator.pop(context, true);
     } catch (e, st) {
       debugPrint('❌ [_confirm] $e\n$st');
@@ -137,41 +140,6 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('關閉'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAmountEditor() {
-    final ctrl = TextEditingController(
-        text: _amount > 0 ? _amount.toInt().toString() : '');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('輸入金額'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            prefixText: '\$ ',
-            hintText: '0',
-            border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消')),
-          ElevatedButton(
-            onPressed: () {
-              final val = double.tryParse(ctrl.text.trim());
-              if (val != null && val >= 0) setState(() => _amount = val);
-              Navigator.pop(ctx);
-            },
-            child: const Text('確定'),
           ),
         ],
       ),
@@ -301,51 +269,67 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
                   fontWeight: FontWeight.bold,
                   color: Colors.grey.shade700)),
           const SizedBox(height: 8),
-          GestureDetector(
-            onTap: _showAmountEditor,
-            child: Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.pink.withValues(alpha: 0.12),
-                      blurRadius: 12)
-                ],
-                border: Border.all(color: Colors.pink.shade100),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _amount > 0
-                        ? '\$ ${_amount.toInt()}'
-                        : '點擊輸入金額',
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.pink.withValues(alpha: 0.12),
+                    blurRadius: 12)
+              ],
+              border: Border.all(color: Colors.pink.shade100),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 20),
+                  child: Text(
+                    '\$ ',
                     style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.w900,
-                      color: _amount > 0
-                          ? Colors.pink.shade400
-                          : Colors.grey.shade300,
+                      color: Colors.pink.shade400,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Icon(Icons.edit_outlined,
-                      color: Colors.grey.shade400, size: 20),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _amountController,
+                    autofocus: _amountController.text.isEmpty,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.pink.shade400,
+                    ),
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      hintText: '0',
+                      hintStyle: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.grey.shade300,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 20, horizontal: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+              ],
             ),
           ),
           const SizedBox(height: 6),
           Row(
             children: [
               Icon(
-                _ocrAvailable
-                    ? Icons.auto_awesome
-                    : Icons.info_outline,
+                _ocrAvailable ? Icons.auto_awesome : Icons.info_outline,
                 size: 14,
                 color: _ocrAvailable
                     ? Colors.amber.shade600
@@ -354,8 +338,10 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
               const SizedBox(width: 4),
               Text(
                 _ocrAvailable
-                    ? (_amount > 0 ? '自動辨識金額，可點擊修改' : '未辨識到金額，請點擊輸入')
-                    : '目前平台不支援自動辨識，請手動輸入金額',
+                    ? (_amountController.text.isNotEmpty
+                        ? '自動辨識金額，可直接修改'
+                        : '未辨識到金額，請直接輸入')
+                    : '目前平台不支援自動辨識，請直接輸入金額',
                 style: TextStyle(
                   fontSize: 12,
                   color: _ocrAvailable
@@ -456,30 +442,36 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
           const SizedBox(height: 32),
 
           // Confirm button
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _amount > 0 ? () => _confirm(state) : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pink.shade400,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade200,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18)),
-                elevation: _amount > 0 ? 4 : 0,
-              ),
-              child: Text(
-                _amount > 0
-                    ? '確認記帳 ${_selectedCategory.emoji}  −\$${_amount.toInt()}'
-                    : '請輸入金額',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _amount > 0 ? Colors.white : Colors.grey.shade400,
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _amountController,
+            builder: (context, value, _) {
+              final amount = double.tryParse(value.text) ?? 0;
+              return SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: amount > 0 ? () => _confirm(state) : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.pink.shade400,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade200,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    elevation: amount > 0 ? 4 : 0,
+                  ),
+                  child: Text(
+                    amount > 0
+                        ? '確認記帳 ${_selectedCategory.emoji}  −\$${amount.toInt()}'
+                        : '請輸入金額',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: amount > 0 ? Colors.white : Colors.grey.shade400,
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
 
           const SizedBox(height: 12),
@@ -488,7 +480,7 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
             child: TextButton.icon(
               onPressed: () => setState(() {
                 _imageBytes = null;
-                _amount = 0;
+                _amountController.clear();
                 _noteController.clear();
                 _state = _ScanState.initial;
               }),
