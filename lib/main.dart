@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,19 +10,20 @@ import 'screens/home_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/more_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
 
-  // 攔截所有未處理的 Flutter 錯誤，印到 console
+  // 將所有未處理的 Flutter framework 錯誤回報給 Crashlytics
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
-    debugPrint('🔥 [FlutterError] ${details.exception}\n${details.stack}');
+    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
   };
 
-  // 攔截所有 Dart 非同步未處理錯誤
+  // 將所有未處理的 Dart 非同步錯誤回報給 Crashlytics
   PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('🔥 [DartError] $error\n$stack');
-    return false;
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
   };
 
   runApp(const MeowMeowBankApp());
