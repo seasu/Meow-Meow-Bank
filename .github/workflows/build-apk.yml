@@ -3,6 +3,10 @@ name: Build Android APK
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
