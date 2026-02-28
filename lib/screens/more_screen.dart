@@ -381,13 +381,14 @@ class _ExportCardState extends State<_ExportCard> {
               onPressed: (txCount == 0 || _exporting)
                   ? null
                   : () async {
+                      final messenger = ScaffoldMessenger.of(context);
                       setState(() => _exporting = true);
                       try {
                         await ExportHelper.exportCsv(
                             widget.state.transactions, accName);
                       } catch (_) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             const SnackBar(content: Text('匯出失敗，請再試一次')),
                           );
                         }
