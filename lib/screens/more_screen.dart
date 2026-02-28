@@ -341,6 +341,7 @@ class _ExportCardState extends State<_ExportCard> {
   @override
   Widget build(BuildContext context) {
     final accounts = widget.state.accounts;
+    final txCount = widget.state.transactions.length;
     final accName = accounts.isEmpty
         ? ''
         : accounts
