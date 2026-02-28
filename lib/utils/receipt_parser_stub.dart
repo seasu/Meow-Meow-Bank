@@ -1,5 +1,5 @@
 // Web stub — OCR is not supported in the browser.
-import 'package:image_picker/image_picker.dart';
+import 'dart:typed_data';
 
 class ReceiptData {
   final double? amount;
@@ -14,7 +14,7 @@ class ReceiptData {
 }
 
 class ReceiptParser {
-  static Future<ReceiptData?> parseReceipt(XFile xFile) async {
+  static Future<ReceiptData?> parseReceipt(Uint8List bytes) async {
     // OCR is not available on web; return null so the UI falls back to
     // manual amount entry.
     return null;
