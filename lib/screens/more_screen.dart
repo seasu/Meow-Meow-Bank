@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/transaction.dart';
+import '../utils/export_helper.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -105,6 +106,12 @@ class MoreScreen extends StatelessWidget {
         _sectionTitle('🏦 虛擬利息'),
         const SizedBox(height: 8),
         _InterestCard(state: state),
+        const SizedBox(height: 20),
+
+        // Export
+        _sectionTitle('📤 匯出資料'),
+        const SizedBox(height: 8),
+        _ExportCard(state: state),
         const SizedBox(height: 20),
 
         // Account management
@@ -313,6 +320,94 @@ class MoreScreen extends StatelessWidget {
             onPressed: () { state.deleteAccount(id); Navigator.pop(ctx); },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text('永久刪除'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExportCard extends StatefulWidget {
+  final AppState state;
+  const _ExportCard({required this.state});
+
+  @override
+  State<_ExportCard> createState() => _ExportCardState();
+}
+
+class _ExportCardState extends State<_ExportCard> {
+  bool _exporting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final txCount = widget.state.transactions.length;
+    final accName = widget.state.accounts
+        .firstWhere((a) => a.id == widget.state.currentAccountId,
+            orElse: () => widget.state.accounts.first)
+        .name;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text('📊', style: TextStyle(fontSize: 28)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('下載記帳明細', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                Text('共 $txCount 筆，匯出 CSV 檔案',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 40,
+            child: ElevatedButton(
+              onPressed: (txCount == 0 || _exporting)
+                  ? null
+                  : () async {
+                      setState(() => _exporting = true);
+                      try {
+                        await ExportHelper.exportCsv(
+                            widget.state.transactions, accName);
+                      } catch (_) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('匯出失敗，請再試一次')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _exporting = false);
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade500,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade200,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              child: _exporting
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('匯出', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ),
         ],
       ),
