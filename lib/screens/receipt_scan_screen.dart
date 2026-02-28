@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -46,7 +47,8 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
         imageQuality: 90,
         maxWidth: 1920,
       );
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('❌ [pickImage] $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('無法開啟相機，請確認已授予相機權限')),
@@ -74,7 +76,8 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
         _ocrAvailable = result != null;
         _state = _ScanState.confirm;
       });
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('❌ [parseReceipt] $e\n$st');
       if (!mounted) return;
       setState(() {
         _amount = 0;
@@ -86,11 +89,47 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
 
   void _confirm(AppState state) {
     if (_amount <= 0) return;
-    SoundService.playSpendMoney();
-    HapticFeedback.mediumImpact();
-    state.addTransaction(
-        _amount, _selectedCategory, TransactionType.expense, _noteController.text.trim());
-    Navigator.pop(context, true);
+    try {
+      SoundService.playSpendMoney();
+      HapticFeedback.mediumImpact();
+      state.addTransaction(
+          _amount, _selectedCategory, TransactionType.expense, _noteController.text.trim());
+      Navigator.pop(context, true);
+    } catch (e, st) {
+      debugPrint('❌ [_confirm] $e\n$st');
+      _showErrorDialog(e, st);
+    }
+  }
+
+  void _showErrorDialog(Object error, StackTrace stack) {
+    final msg = '錯誤：$error\n\n$stack';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('發生錯誤'),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            msg,
+            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: msg));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('已複製錯誤訊息')),
+              );
+            },
+            child: const Text('複製'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('關閉'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAmountEditor() {
