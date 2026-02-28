@@ -32,3 +32,9 @@
 
 # share_plus
 -keep class dev.fluttercommunity.plus.share.** { *; }
+
+# mobile_scanner
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**
+-keep class dev.steenbakker.mobile_scanner.** { *; }
+-dontwarn dev.steenbakker.mobile_scanner.**
