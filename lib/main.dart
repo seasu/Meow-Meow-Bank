@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_state.dart';
@@ -8,6 +9,20 @@ import 'screens/stats_screen.dart';
 import 'screens/more_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 攔截所有未處理的 Flutter 錯誤，印到 console
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('🔥 [FlutterError] ${details.exception}\n${details.stack}');
+  };
+
+  // 攔截所有 Dart 非同步未處理錯誤
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('🔥 [DartError] $error\n$stack');
+    return false;
+  };
+
   runApp(const MeowMeowBankApp());
 }
 
