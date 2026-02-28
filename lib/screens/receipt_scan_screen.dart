@@ -59,7 +59,18 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
 
     if (xFile == null || !mounted) return;
 
-    final bytes = await xFile.readAsBytes();
+    Uint8List bytes;
+    try {
+      bytes = await xFile.readAsBytes();
+    } catch (e, st) {
+      debugPrint('❌ [readAsBytes] $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('讀取照片失敗，請再試一次')),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
 
     setState(() {
@@ -68,7 +79,7 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
     });
 
     try {
-      final result = await ReceiptParser.parseReceipt(xFile);
+      final result = await ReceiptParser.parseReceipt(bytes);
       if (!mounted) return;
       setState(() {
         _amount = result?.amount ?? 0;

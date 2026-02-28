@@ -1,5 +1,8 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ReceiptData {
   final double? amount;
@@ -14,12 +17,22 @@ class ReceiptData {
 }
 
 class ReceiptParser {
-  /// Runs on-device OCR (Google ML Kit) on the given image and extracts
+  /// Runs on-device OCR (Google ML Kit) on the given image bytes and extracts
   /// the total amount from a Taiwanese / general receipt.
-  static Future<ReceiptData?> parseReceipt(XFile xFile) async {
+  ///
+  /// Bytes are written to a stable temp file before being passed to ML Kit,
+  /// because the original [XFile] path from iOS camera may be invalidated
+  /// after [readAsBytes] is called, causing a native crash.
+  static Future<ReceiptData?> parseReceipt(Uint8List bytes) async {
     final recognizer = TextRecognizer(script: TextRecognitionScript.chinese);
+    File? tmpFile;
     try {
-      final inputImage = InputImage.fromFilePath(xFile.path);
+      final dir = await getTemporaryDirectory();
+      tmpFile = File(
+          '${dir.path}/ocr_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await tmpFile.writeAsBytes(bytes, flush: true);
+
+      final inputImage = InputImage.fromFilePath(tmpFile.path);
       final recognized = await recognizer.processImage(inputImage);
       final text = recognized.text;
 
@@ -29,6 +42,7 @@ class ReceiptParser {
       return ReceiptData(amount: amount, rawText: text, suggestedNote: note);
     } finally {
       recognizer.close();
+      tmpFile?.delete().ignore();
     }
   }
 
