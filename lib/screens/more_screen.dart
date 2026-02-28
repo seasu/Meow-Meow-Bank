@@ -340,11 +340,13 @@ class _ExportCardState extends State<_ExportCard> {
 
   @override
   Widget build(BuildContext context) {
-    final txCount = widget.state.transactions.length;
-    final accName = widget.state.accounts
-        .firstWhere((a) => a.id == widget.state.currentAccountId,
-            orElse: () => widget.state.accounts.first)
-        .name;
+    final accounts = widget.state.accounts;
+    final accName = accounts.isEmpty
+        ? ''
+        : accounts
+            .firstWhere((a) => a.id == widget.state.currentAccountId,
+                orElse: () => accounts.first)
+            .name;
 
     return Container(
       padding: const EdgeInsets.all(16),
