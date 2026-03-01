@@ -2,6 +2,13 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+      - 'claude/**'
 
 permissions:
   contents: write
@@ -9,6 +16,8 @@ permissions:
 
 jobs:
   build:
+    # For workflow_run: only proceed if CI actually passed
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
