@@ -9,11 +9,13 @@ class ReceiptData {
   final double? amount;
   final String rawText;
   final String suggestedNote;
+  final DateTime? date;
 
   const ReceiptData({
     this.amount,
     required this.rawText,
     required this.suggestedNote,
+    this.date,
   });
 }
 
@@ -42,8 +44,9 @@ class ReceiptParser {
 
       final amount = qrAmount ?? _extractAmount(text);
       final note = _extractMerchantName(text);
+      final date = _extractDate(text);
 
-      return ReceiptData(amount: amount, rawText: text, suggestedNote: note);
+      return ReceiptData(amount: amount, rawText: text, suggestedNote: note, date: date);
     } finally {
       recognizer.close();
       tmpFile?.delete().ignore();
@@ -150,6 +153,50 @@ class ReceiptParser {
     }
 
     return bestAmount;
+  }
+
+  // ─── Date Extraction ─────────────────────────────────────────────────────
+
+  /// Extract the receipt date from OCR text.
+  ///
+  /// Supports:
+  ///   - Western:  2025/03/15, 2025-03-15, 2025年03月15日
+  ///   - ROC:      114/03/15, 114-03-15, 114年03月15日 (民國年 + 1911)
+  static DateTime? _extractDate(String text) {
+    // Western year YYYY
+    final western = RegExp(
+            r'(20\d{2})[/\-年](\d{1,2})[/\-月](\d{1,2})')
+        .firstMatch(text);
+    if (western != null) {
+      try {
+        final d = DateTime(
+          int.parse(western.group(1)!),
+          int.parse(western.group(2)!),
+          int.parse(western.group(3)!),
+        );
+        if (d.isBefore(DateTime.now().add(const Duration(days: 1)))) return d;
+      } catch (_) {}
+    }
+
+    // ROC year YYY (民國)
+    final roc = RegExp(r'(\d{3})[/\-年](\d{1,2})[/\-月](\d{1,2})')
+        .firstMatch(text);
+    if (roc != null) {
+      try {
+        final year = int.parse(roc.group(1)!) + 1911;
+        final d = DateTime(
+          year,
+          int.parse(roc.group(2)!),
+          int.parse(roc.group(3)!),
+        );
+        if (year >= 1990 &&
+            d.isBefore(DateTime.now().add(const Duration(days: 1)))) {
+          return d;
+        }
+      } catch (_) {}
+    }
+
+    return null;
   }
 
   // ─── Merchant Name ────────────────────────────────────────────────────────

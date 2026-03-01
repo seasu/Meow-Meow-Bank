@@ -5,11 +5,13 @@ class ReceiptData {
   final double? amount;
   final String rawText;
   final String suggestedNote;
+  final DateTime? date;
 
   const ReceiptData({
     this.amount,
     required this.rawText,
     required this.suggestedNote,
+    this.date,
   });
 }
 
