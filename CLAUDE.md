@@ -9,7 +9,55 @@
 
 ---
 
+## 架構摘要
+
+```
+lib/
+├── models/
+│   ├── transaction.dart   # Transaction / TxCategory / Wish / TransactionType
+│   ├── account.dart       # Account（多帳號）
+│   └── constants.dart     # kCategories、kAccessories、貓咪飢餓常數
+├── providers/
+│   └── app_state.dart     # 全域狀態（Provider + ChangeNotifier）
+├── screens/
+│   ├── home_screen.dart         # 主畫面：存錢/花錢/掃描入口
+│   ├── history_screen.dart      # 完整紀錄（含編輯/刪除）
+│   ├── receipt_scan_screen.dart # 發票掃描記帳（含日期辨識與編輯）
+│   ├── stats_screen.dart        # 統計：週圖表、類別圓餅
+│   ├── accessories_screen.dart  # 配件解鎖與裝備
+│   ├── dream_tree_screen.dart   # 願望樹（存款目標）
+│   ├── parent_screen.dart       # 家長儀表板
+│   ├── more_screen.dart         # 更多設定
+│   └── amount_input_screen.dart # 金額輸入（面額按鈕）
+├── widgets/
+│   └── building_scene.dart      # 建築場景元件（目前未掛入任何畫面）
+└── utils/
+    ├── receipt_parser.dart        # 條件匯出（mobile / stub）
+    ├── receipt_parser_mobile.dart # ML Kit OCR 實作（iOS/Android）
+    ├── receipt_parser_stub.dart   # Web 佔位實作
+    ├── export_helper.dart         # CSV 匯出
+    ├── sound_service.dart         # 音效
+    └── version.dart               # appVersion 常數
+```
+
+---
+
 ## 功能說明
+
+### 畫面與功能一覽
+
+| 畫面 | 功能重點 |
+|------|----------|
+| **主畫面** `home_screen.dart` | 存錢 / 花錢 / 掃描發票入口；貓咪動畫與心情訊息 |
+| **完整紀錄** `history_screen.dart` | 依日期分組列表；點擊開啟編輯面板（v2.1.3） |
+| **發票掃描** `receipt_scan_screen.dart` | ML Kit OCR + Taiwan 電子發票 QR；日期辨識（v2.1.3） |
+| **統計** `stats_screen.dart` | 7 日收支長條圖；類別圓餅圖 |
+| **配件** `accessories_screen.dart` | 8 件配件依連續天數或存款解鎖；可裝備/卸除 |
+| **願望樹** `dream_tree_screen.dart` | 自訂存款目標；以「澆水」分配存款；四段樹成長圖示 |
+| **家長儀表板** `parent_screen.dart` | 摘要卡（連續記帳天數 / 餘額 / 總收入）；待審核清單；利息設定 |
+| **更多** `more_screen.dart` | 帳號切換 / 新增 / 刪除；資料匯出；其他設定 |
+
+---
 
 ### 紀錄編輯與刪除（v2.1.3）
 
@@ -24,7 +72,7 @@
   - **日期**（日期選擇器）
   - **時間**（時間選擇器）
 - 點擊右上角 🗑️ 刪除按鈕，確認後永久移除該筆紀錄。
-- 儲存後自動重新計算餘額、建築等級等衍生數值。
+- 儲存後自動重新計算餘額等衍生數值。
 
 **相關改動**：
 - `lib/models/transaction.dart`：`amount`、`category`、`type`、`note`、`createdAt` 欄位改為可修改（移除 `final`）。
@@ -51,25 +99,84 @@
 
 ---
 
-## 架構摘要
+## 狀態管理（app_state.dart）
+
+### 主要狀態欄位
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| `_transactions` | `List<Transaction>` | 所有交易紀錄 |
+| `_wishes` | `List<Wish>` | 存款目標清單 |
+| `_streak` | `int` | 連續記帳天數 |
+| `_catHunger` | `double` | 貓咪飢餓值（0–100） |
+| `_unlockedAccessories` | `List<String>` | 已解鎖配件 ID |
+| `_equippedAccessories` | `List<String>` | 已裝備配件 ID |
+| `_interestRate` | `double` | 利率（%） |
+| `_interestPeriod` | `String` | `'weekly'` 或 `'monthly'` |
+| `_accounts` | `List<Account>` | 多帳號清單 |
+| `_buildingLevel` | `int` | 建築等級（內部計算；**目前無畫面顯示**） |
+
+> ⚠️ **`buildingLevel`**：在 `app_state.dart` 內部仍會根據存款自動更新，`widgets/building_scene.dart` 也存在對應元件，但**目前沒有任何畫面引用此數值或元件**，屬於待整合狀態。
+
+### 關鍵方法
+
+| 方法 | 說明 |
+|------|------|
+| `addTransaction(amount, category, type, note, {customDate})` | 新增交易，可指定日期 |
+| `updateTransaction(id, {amount, category, type, note, createdAt})` | 修改既有交易 |
+| `deleteTransaction(id)` | 刪除交易 |
+| `approveTransaction(id)` | 家長審核通過 |
+| `sendHeart(id)` | 家長送愛心 |
+| `addWish / waterWish / deleteWish` | 願望管理 |
+| `toggleAccessory(id)` | 裝備 / 卸除配件 |
+| `applyInterest()` | 依設定發放利息 |
+| `addAccount / switchAccount / renameAccount / deleteAccount` | 多帳號管理 |
+
+---
+
+## 遊戲化機制
+
+### 貓咪飢餓系統
+- 每天自動衰減 15 點（`kHungerDecayPerDay`）
+- 每筆記帳恢復 30 點（`kHungerFeedAmount`）
+- 超過 1 天未記帳則連續天數歸零
+
+### 連續記帳天數（Streak）
+- 每日首次記帳 +1 天
+- 超過 1 天未記帳重置為 1
+
+### 配件解鎖（8 件）
+
+| 配件 | 解鎖條件 |
+|------|----------|
+| 🔔 紅色鈴鐺 | 連續 3 天 |
+| 🧣 藍色圍兜 | 連續 7 天 |
+| 👑 金色皇冠 | 連續 14 天 |
+| 🕶️ 星星眼鏡 | 連續 30 天 |
+| 🛏️ 貓咪小窩 | 存款 ≥ $200 |
+| 🐠 小魚玩具 | 存款 ≥ $500 |
+| 🗼 豪華貓塔 | 存款 ≥ $1000 |
+| ✨ 魔法棒 | 存款 ≥ $3000 |
+
+---
+
+## 資料持久化
+
+使用 `SharedPreferences`，以帳號為單位儲存：
 
 ```
-lib/
-├── models/
-│   ├── transaction.dart   # Transaction / TxCategory / Wish 資料模型
-│   └── constants.dart     # 類別清單、配件定義、遊戲常數
-├── providers/
-│   └── app_state.dart     # 全域狀態管理（Provider + ChangeNotifier）
-├── screens/
-│   ├── history_screen.dart      # 完整紀錄（含編輯/刪除）
-│   ├── receipt_scan_screen.dart # 發票掃描記帳（含日期辨識與編輯）
-│   └── ...
-└── utils/
-    ├── receipt_parser.dart        # 條件匯出（mobile / stub）
-    ├── receipt_parser_mobile.dart # ML Kit OCR 實作（iOS/Android）
-    ├── receipt_parser_stub.dart   # Web 佔位實作
-    └── version.dart               # 版本號常數
+'accounts'            → List<Account> JSON
+'current_account'     → 目前帳號 ID
+'account_{id}'        → {
+  transactions, wishes, lastRecordDate, streak,
+  catHunger, buildingLevel, unlockedAccessories,
+  equippedAccessories, interestRate, interestPeriod
+}
 ```
+
+舊版 `'app_state'` key 可自動遷移至新格式。
+
+---
 
 ## 開發規範
 
