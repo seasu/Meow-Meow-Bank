@@ -69,7 +69,7 @@ class _AmountInputScreenState extends State<AmountInputScreen> {
     final isSave = widget.mode == AmountMode.save;
 
     return Scaffold(
-      backgroundColor: c.withValues(alpha: 0.05),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
