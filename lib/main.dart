@@ -6,9 +6,11 @@ import 'package:provider/provider.dart';
 import 'providers/app_state.dart';
 import 'utils/theme.dart';
 import 'utils/version.dart';
+import 'utils/sounds.dart';
 import 'screens/home_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/more_screen.dart';
+import 'screens/receipt_scan_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +63,16 @@ class _MainShellState extends State<MainShell> {
     StatsScreen(),
     MoreScreen(),
   ];
+
+  void _onScanReceipt(BuildContext context, AppState state) async {
+    final recorded = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const ReceiptScanScreen()),
+    );
+    if (recorded == true && context.mounted) {
+      SoundService.playSpendMoney();
+    }
+  }
 
   void _showAccountSwitcher(AppState state) {
     showModalBottomSheet(
@@ -210,6 +222,13 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
         actions: [
+          // Scan receipt icon — only show on home tab
+          if (_currentIndex == 0)
+            IconButton(
+              icon: const Text('📷', style: TextStyle(fontSize: 22)),
+              tooltip: '掃描發票',
+              onPressed: () => _onScanReceipt(context, state),
+            ),
           // Account switcher button
           GestureDetector(
             onTap: () => _showAccountSwitcher(state),
