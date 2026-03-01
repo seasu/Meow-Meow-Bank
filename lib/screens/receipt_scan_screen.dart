@@ -29,6 +29,8 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
   TxCategory _selectedCategory =
       kCategories.firstWhere((c) => c.id == 'shopping');
   bool _ocrAvailable = true;
+  DateTime _selectedDate = DateTime.now();
+  bool _dateFromOcr = false;
 
   static final _expenseCategories =
       kCategories.where((c) => c.type == TransactionType.expense).toList();
@@ -83,10 +85,18 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
       final result = await ReceiptParser.parseReceipt(bytes);
       if (!mounted) return;
       final amt = result?.amount;
+      final ocrDate = result?.date;
       setState(() {
         _amountController.text = amt != null && amt > 0 ? amt.toInt().toString() : '';
         _noteController.text = result?.suggestedNote ?? '';
         _ocrAvailable = result != null;
+        if (ocrDate != null) {
+          _selectedDate = ocrDate;
+          _dateFromOcr = true;
+        } else {
+          _selectedDate = DateTime.now();
+          _dateFromOcr = false;
+        }
         _state = _ScanState.confirm;
       });
     } catch (e, st) {
@@ -107,11 +117,28 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
       SoundService.playSpendMoney();
       HapticFeedback.mediumImpact();
       state.addTransaction(
-          amount, _selectedCategory, TransactionType.expense, _noteController.text.trim());
+          amount, _selectedCategory, TransactionType.expense, _noteController.text.trim(),
+          customDate: _selectedDate);
       Navigator.pop(context, true);
     } catch (e, st) {
       debugPrint('❌ [_confirm] $e\n$st');
       _showErrorDialog(e, st);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateTime(picked.year, picked.month, picked.day,
+            _selectedDate.hour, _selectedDate.minute);
+        _dateFromOcr = false;
+      });
     }
   }
 
@@ -231,10 +258,10 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
           const SizedBox(height: 32),
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
-          Text('正在辨識發票金額...',
+          Text('正在辨識發票資訊...',
               style: TextStyle(fontSize: 16, color: Colors.grey.shade700)),
           const SizedBox(height: 8),
-          Text('🔍 掃描中',
+          Text('🔍 辨識金額與日期中',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
         ],
       ),
@@ -410,6 +437,61 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
 
           const SizedBox(height: 20),
 
+          // Date section
+          Text('📅 消費日期',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700)),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _pickDate,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.pink.shade100),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today,
+                      size: 18, color: Colors.pink.shade400),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${_selectedDate.year}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.day.toString().padLeft(2, '0')}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  if (_dateFromOcr)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: Text('自動辨識',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.amber.shade800)),
+                    ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit, size: 16, color: Colors.grey.shade400),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '點擊可修改日期',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          ),
+
+          const SizedBox(height: 20),
+
           // Note section
           Text('📝 備註（選填）',
               style: TextStyle(
@@ -482,6 +564,8 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
                 _imageBytes = null;
                 _amountController.clear();
                 _noteController.clear();
+                _selectedDate = DateTime.now();
+                _dateFromOcr = false;
                 _state = _ScanState.initial;
               }),
               icon: const Icon(Icons.refresh, size: 16),

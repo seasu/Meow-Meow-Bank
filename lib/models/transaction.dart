@@ -30,11 +30,11 @@ enum TransactionType { income, expense }
 
 class Transaction {
   final String id;
-  final double amount;
-  final TxCategory category;
-  final TransactionType type;
-  final String note;
-  final DateTime createdAt;
+  double amount;
+  TxCategory category;
+  TransactionType type;
+  String note;
+  DateTime createdAt;
   bool approved;
   bool parentHeart;
 
