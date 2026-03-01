@@ -184,9 +184,9 @@ class _HomeScreenState extends State<HomeScreen> {
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity == null) return;
         if (details.primaryVelocity! < -300) {
-          _onSpendMoney(state);
-        } else if (details.primaryVelocity! > 300) {
           _onSaveMoney(state);
+        } else if (details.primaryVelocity! > 300) {
+          _onSpendMoney(state);
         }
       },
       child: SingleChildScrollView(
@@ -336,45 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            const SizedBox(height: 16),
-
-            // Scan receipt button
-            GestureDetector(
-              onTap: () => _onScanReceipt(state),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.pink.shade300, Colors.orange.shade300],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.pink.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('📷', style: TextStyle(fontSize: 22)),
-                    SizedBox(width: 8),
-                    Text(
-                      '掃發票自動記帳',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
             const SizedBox(height: 16),
 

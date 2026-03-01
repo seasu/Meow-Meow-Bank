@@ -9,6 +9,8 @@ import 'utils/version.dart';
 import 'screens/home_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/more_screen.dart';
+import 'screens/receipt_scan_screen.dart';
+import 'utils/sounds.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -210,6 +212,21 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
         actions: [
+          // Scan receipt icon (home tab only)
+          if (_currentIndex == 0)
+            IconButton(
+              onPressed: () async {
+                final recorded = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ReceiptScanScreen()),
+                );
+                if (recorded == true) {
+                  SoundService.playSpendMoney();
+                }
+              },
+              icon: const Text('📷', style: TextStyle(fontSize: 22)),
+              tooltip: '掃發票自動記帳',
+            ),
           // Account switcher button
           GestureDetector(
             onTap: () => _showAccountSwitcher(state),
