@@ -167,10 +167,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity == null) return;
-        if (details.primaryVelocity! < -300) {
-          _onSpendMoney(state);
-        } else if (details.primaryVelocity! > 300) {
+        if (details.primaryVelocity! > 300) {
           _onSaveMoney(state);
+        } else if (details.primaryVelocity! < -300) {
+          _onSpendMoney(state);
         }
       },
       child: SingleChildScrollView(
@@ -311,9 +311,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text('👈', style: TextStyle(fontSize: 16)),
                   const SizedBox(width: 4),
-                  Text('左滑存錢', style: TextStyle(fontSize: 12, color: Colors.amber.shade700)),
+                  Text('左滑花錢', style: TextStyle(fontSize: 12, color: Colors.pink.shade400)),
                   Text('  ·  ', style: TextStyle(color: Colors.grey.shade400)),
-                  Text('右滑花錢', style: TextStyle(fontSize: 12, color: Colors.pink.shade400)),
+                  Text('右滑存錢', style: TextStyle(fontSize: 12, color: Colors.amber.shade700)),
                   const SizedBox(width: 4),
                   Text('👉', style: TextStyle(fontSize: 16)),
                 ],
