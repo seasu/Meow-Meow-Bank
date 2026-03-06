@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build and Distribute Android APK
 
 on:
   workflow_dispatch:
@@ -45,11 +45,16 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Rename APK
+      - name: Get version from pubspec.yaml
+        id: version
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Rename APK
+        run: |
           cp build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/meow-meow-bank-${VERSION}.apk
+             build/app/outputs/flutter-apk/meow-meow-bank-${{ steps.version.outputs.version }}.apk
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
@@ -57,6 +62,18 @@ jobs:
           name: meow-meow-bank-apk
           path: build/app/outputs/flutter-apk/meow-meow-bank-*.apk
           retention-days: 30
+
+      - name: Distribute to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          groups: internal-testers
+          file: build/app/outputs/flutter-apk/app-release.apk
+          releaseNotes: |
+            版本：${{ steps.version.outputs.version }}
+            Branch：${{ github.ref_name }}
+            Commit：${{ github.sha }}
 
       - name: Create Release (on main branch only)
         if: github.ref == 'refs/heads/main'
