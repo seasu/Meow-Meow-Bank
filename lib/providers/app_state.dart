@@ -261,8 +261,8 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void addTransaction(double amount, TxCategory category, TransactionType type, String note) {
-    final tx = Transaction(id: _uuid.v4(), amount: amount, category: category, type: type, note: note, createdAt: DateTime.now());
+  void addTransaction(double amount, TxCategory category, TransactionType type, String note, {DateTime? customDate}) {
+    final tx = Transaction(id: _uuid.v4(), amount: amount, category: category, type: type, note: note, createdAt: customDate ?? DateTime.now());
     _transactions.add(tx);
     final todayStr = _today();
     if (_lastRecordDate == null) { _streak = 1; }
@@ -317,6 +317,27 @@ class AppState extends ChangeNotifier {
     _equippedAccessories.contains(id) ? _equippedAccessories.remove(id) : _equippedAccessories.add(id);
     _save(); notifyListeners();
   }
+  void updateTransaction(String id, {double? amount, TxCategory? category, TransactionType? type, String? note, DateTime? createdAt}) {
+    final idx = _transactions.indexWhere((t) => t.id == id);
+    if (idx == -1) return;
+    final tx = _transactions[idx];
+    if (amount != null) tx.amount = amount;
+    if (category != null) tx.category = category;
+    if (type != null) tx.type = type;
+    if (note != null) tx.note = note;
+    if (createdAt != null) tx.createdAt = createdAt;
+    _updateBuildingLevel();
+    _save();
+    notifyListeners();
+  }
+
+  void deleteTransaction(String id) {
+    _transactions.removeWhere((t) => t.id == id);
+    _updateBuildingLevel();
+    _save();
+    notifyListeners();
+  }
+
   void approveTransaction(String id) { _transactions.firstWhere((t) => t.id == id).approved = true; _save(); notifyListeners(); }
   void sendHeart(String id) { _transactions.firstWhere((t) => t.id == id).parentHeart = true; _save(); notifyListeners(); }
   void updateInterestConfig(double rate, String period) { _interestRate = rate; _interestPeriod = period; _save(); notifyListeners(); }

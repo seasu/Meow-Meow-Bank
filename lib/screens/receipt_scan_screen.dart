@@ -1,0 +1,653 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+
+import '../models/constants.dart';
+import '../models/transaction.dart';
+import '../providers/app_state.dart';
+import '../utils/receipt_parser.dart';
+import '../utils/sounds.dart';
+
+enum _ScanState { initial, loading, confirm }
+
+class ReceiptScanScreen extends StatefulWidget {
+  const ReceiptScanScreen({super.key});
+
+  @override
+  State<ReceiptScanScreen> createState() => _ReceiptScanScreenState();
+}
+
+class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
+  final _picker = ImagePicker();
+  final _noteController = TextEditingController();
+  final _amountController = TextEditingController();
+
+  _ScanState _state = _ScanState.initial;
+  Uint8List? _imageBytes;
+  TxCategory _selectedCategory =
+      kCategories.firstWhere((c) => c.id == 'shopping');
+  bool _ocrAvailable = true;
+  DateTime _selectedDate = DateTime.now();
+  bool _dateFromOcr = false;
+
+  static final _expenseCategories =
+      kCategories.where((c) => c.type == TransactionType.expense).toList();
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    XFile? xFile;
+    try {
+      xFile = await _picker.pickImage(
+        source: source,
+        imageQuality: 90,
+        maxWidth: 1920,
+      );
+    } catch (e, st) {
+      debugPrint('❌ [pickImage] $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無法開啟相機，請確認已授予相機權限')),
+        );
+      }
+      return;
+    }
+
+    if (xFile == null || !mounted) return;
+
+    Uint8List bytes;
+    try {
+      bytes = await xFile.readAsBytes();
+    } catch (e, st) {
+      debugPrint('❌ [readAsBytes] $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('讀取照片失敗，請再試一次')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    setState(() {
+      _imageBytes = bytes;
+      _state = _ScanState.loading;
+    });
+
+    try {
+      final result = await ReceiptParser.parseReceipt(bytes);
+      if (!mounted) return;
+      final amt = result?.amount;
+      final ocrDate = result?.date;
+      setState(() {
+        _amountController.text = amt != null && amt > 0 ? amt.toInt().toString() : '';
+        _noteController.text = result?.suggestedNote ?? '';
+        _ocrAvailable = result != null;
+        if (ocrDate != null) {
+          _selectedDate = ocrDate;
+          _dateFromOcr = true;
+        } else {
+          _selectedDate = DateTime.now();
+          _dateFromOcr = false;
+        }
+        _state = _ScanState.confirm;
+      });
+    } catch (e, st) {
+      debugPrint('❌ [parseReceipt] $e\n$st');
+      if (!mounted) return;
+      setState(() {
+        _amountController.clear();
+        _ocrAvailable = false;
+        _state = _ScanState.confirm;
+      });
+    }
+  }
+
+  void _confirm(AppState state) {
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+    if (amount <= 0) return;
+    try {
+      SoundService.playSpendMoney();
+      HapticFeedback.mediumImpact();
+      state.addTransaction(
+          amount, _selectedCategory, TransactionType.expense, _noteController.text.trim(),
+          customDate: _selectedDate);
+      Navigator.pop(context, true);
+    } catch (e, st) {
+      debugPrint('❌ [_confirm] $e\n$st');
+      _showErrorDialog(e, st);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateTime(picked.year, picked.month, picked.day,
+            _selectedDate.hour, _selectedDate.minute);
+        _dateFromOcr = false;
+      });
+    }
+  }
+
+  void _showErrorDialog(Object error, StackTrace stack) {
+    final msg = '錯誤：$error\n\n$stack';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('發生錯誤'),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            msg,
+            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: msg));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('已複製錯誤訊息')),
+              );
+            },
+            child: const Text('複製'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('關閉'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Build ────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<AppState>();
+
+    return Scaffold(
+      backgroundColor: Colors.pink.shade50,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.grey),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('📷 掃描發票記帳',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+      ),
+      body: SafeArea(
+        child: switch (_state) {
+          _ScanState.initial => _buildInitial(),
+          _ScanState.loading => _buildLoading(),
+          _ScanState.confirm => _buildConfirm(state),
+        },
+      ),
+    );
+  }
+
+  // ─── Initial state ────────────────────────────────────────────────────────
+
+  Widget _buildInitial() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('選擇發票照片',
+              style:
+                  TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(
+            '拍下或選取發票，自動辨識金額並記帳',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 40),
+          _BigButton(
+            emoji: '📷',
+            label: '立即拍照',
+            subtitle: '用相機拍攝發票',
+            color: Colors.pink.shade400,
+            onTap: () => _pickImage(ImageSource.camera),
+          ),
+          const SizedBox(height: 16),
+          _BigButton(
+            emoji: '🖼️',
+            label: '從相簿選取',
+            subtitle: '選取已儲存的發票照片',
+            color: Colors.orange.shade400,
+            onTap: () => _pickImage(ImageSource.gallery),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Loading state ────────────────────────────────────────────────────────
+
+  Widget _buildLoading() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (_imageBytes != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.memory(
+                _imageBytes!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+            ),
+          const SizedBox(height: 32),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text('正在辨識發票資訊...',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade700)),
+          const SizedBox(height: 8),
+          Text('🔍 辨識金額與日期中',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+        ],
+      ),
+    );
+  }
+
+  // ─── Confirm state ────────────────────────────────────────────────────────
+
+  Widget _buildConfirm(AppState state) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image preview
+          if (_imageBytes != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.memory(
+                _imageBytes!,
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+            ),
+          const SizedBox(height: 20),
+
+          // Amount section
+          Text('💰 消費金額',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700)),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.pink.withValues(alpha: 0.12),
+                    blurRadius: 12)
+              ],
+              border: Border.all(color: Colors.pink.shade100),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 20),
+                  child: Text(
+                    '\$ ',
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.pink.shade400,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _amountController,
+                    autofocus: _amountController.text.isEmpty,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.pink.shade400,
+                    ),
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      hintText: '0',
+                      hintStyle: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.grey.shade300,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 20, horizontal: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(
+                _ocrAvailable ? Icons.auto_awesome : Icons.info_outline,
+                size: 14,
+                color: _ocrAvailable
+                    ? Colors.amber.shade600
+                    : Colors.grey.shade500,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _ocrAvailable
+                    ? (_amountController.text.isNotEmpty
+                        ? '自動辨識金額，可直接修改'
+                        : '未辨識到金額，請直接輸入')
+                    : '目前平台不支援自動辨識，請直接輸入金額',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _ocrAvailable
+                      ? Colors.amber.shade700
+                      : Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Category section
+          Text('🏷️ 消費類別',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _expenseCategories.map((cat) {
+              final selected = cat.id == _selectedCategory.id;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedCategory = cat),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color:
+                        selected ? Colors.pink.shade100 : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selected
+                          ? Colors.pink.shade300
+                          : Colors.grey.shade200,
+                      width: selected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(cat.emoji,
+                          style: const TextStyle(fontSize: 20)),
+                      const SizedBox(width: 6),
+                      Text(
+                        cat.name,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: selected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: selected
+                              ? Colors.pink.shade600
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Date section
+          Text('📅 消費日期',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700)),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _pickDate,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.pink.shade100),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today,
+                      size: 18, color: Colors.pink.shade400),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${_selectedDate.year}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.day.toString().padLeft(2, '0')}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  if (_dateFromOcr)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: Text('自動辨識',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.amber.shade800)),
+                    ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit, size: 16, color: Colors.grey.shade400),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '點擊可修改日期',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Note section
+          Text('📝 備註（選填）',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _noteController,
+            decoration: InputDecoration(
+              hintText: '例如：早餐、文具等',
+              hintStyle: TextStyle(color: Colors.grey.shade400),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.pink.shade300),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Confirm button
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _amountController,
+            builder: (context, value, _) {
+              final amount = double.tryParse(value.text) ?? 0;
+              return SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: amount > 0 ? () => _confirm(state) : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.pink.shade400,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade200,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    elevation: amount > 0 ? 4 : 0,
+                  ),
+                  child: Text(
+                    amount > 0
+                        ? '確認記帳 ${_selectedCategory.emoji}  −\$${amount.toInt()}'
+                        : '請輸入金額',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: amount > 0 ? Colors.white : Colors.grey.shade400,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          Center(
+            child: TextButton.icon(
+              onPressed: () => setState(() {
+                _imageBytes = null;
+                _amountController.clear();
+                _noteController.clear();
+                _selectedDate = DateTime.now();
+                _dateFromOcr = false;
+                _state = _ScanState.initial;
+              }),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('重新掃描'),
+              style: TextButton.styleFrom(foregroundColor: Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Helper widget ─────────────────────────────────────────────────────────
+
+class _BigButton extends StatelessWidget {
+  final String emoji, label, subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _BigButton({
+    required this.emoji,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: color.withValues(alpha: 0.18),
+                blurRadius: 14,
+                offset: const Offset(0, 4))
+          ],
+          border: Border.all(
+              color: color.withValues(alpha: 0.3), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                  child:
+                      Text(emoji, style: const TextStyle(fontSize: 28))),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: color)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 13, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios,
+                color: color.withValues(alpha: 0.6), size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}

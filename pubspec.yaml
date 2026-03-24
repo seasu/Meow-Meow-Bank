@@ -1,7 +1,11 @@
 name: meow_meow_bank
 description: "喵喵金幣屋 — 兒童理財記帳 App"
 publish_to: 'none'
-version: 2.1.0+23
+
+
+
+version: 2.1.4+27
+
 
 environment:
   sdk: ^3.11.0
@@ -16,8 +20,18 @@ dependencies:
   fl_chart: ^0.70.2
   audioplayers: ^6.4.0
   uuid: ^4.5.1
+
   image_picker: ^1.2.1
   google_mlkit_text_recognition: ^0.15.1
+
+  image_picker: ^1.1.2
+  google_mlkit_text_recognition: ^0.13.1
+  mobile_scanner: ^5.2.3
+  path_provider: ^2.1.5
+  share_plus: ^10.1.4
+  firebase_core: ^3.6.0
+  firebase_crashlytics: ^4.1.0
+
 
 dev_dependencies:
   flutter_test:
