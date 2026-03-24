@@ -10,6 +10,7 @@ import '../widgets/lucky_cat.dart';
 import '../widgets/spending_boy.dart';
 import 'amount_input_screen.dart';
 import 'history_screen.dart';
+import 'receipt_scanner_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -92,6 +93,27 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
     );
+  }
+
+  void _onScanReceipt(AppState state) async {
+    final amount = await Navigator.push<double>(
+      context,
+      MaterialPageRoute(builder: (_) => const ReceiptScannerScreen()),
+    );
+    if (amount != null && amount > 0 && mounted) {
+      _showCategoryPicker(
+        onCategorySelected: (cat) {
+          SoundService.playSpendMoney();
+          HapticFeedback.mediumImpact();
+          state.addTransaction(amount, cat, TransactionType.expense, '發票');
+          setState(() {
+            _catMood = 'remind';
+            _catMessage = '-\$${amount.toInt()} 發票記帳～';
+          });
+          _resetAnimAfter();
+        },
+      );
+    }
   }
 
   void _resetAnimAfter() {
@@ -317,6 +339,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 4),
                   Text('👉', style: TextStyle(fontSize: 16)),
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Receipt scan button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () => _onScanReceipt(state),
+                icon: const Text('📸', style: TextStyle(fontSize: 18)),
+                label: const Text('拍發票記帳', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.pink.shade400,
+                  side: BorderSide(color: Colors.pink.shade200),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
               ),
             ),
 
